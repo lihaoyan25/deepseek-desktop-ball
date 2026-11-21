@@ -1,4 +1,4 @@
-﻿# DeepSeekBall v0.1.0
+# DeepSeekBall v0.1.0
 
 DeepSeek 桌面悬浮球（非官方）首个可下载版本。
 
@@ -12,7 +12,7 @@ DeepSeek 桌面悬浮球（非官方）首个可下载版本。
 安装包 SHA256：
 
 ```text
-B6823C7D95AF4713D71E755CAFFA5AE33EC0A1E7493A77A5F88FE45BCDEA4A9D
+604CE9692334C804810C8941D67AA063B699FCD1A6EF98EB5DEF1056936DB6E0
 ```
 
 **普通用户无需命令行，也不需要自己编译。** 下载安装包后双击即可。
@@ -26,6 +26,7 @@ B6823C7D95AF4713D71E755CAFFA5AE33EC0A1E7493A77A5F88FE45BCDEA4A9D
 - 窗口拖动与工作区边界收束；
 - Markdown、代码高亮、KaTeX、思考过程、深度思考/智能搜索；
 - 单实例、系统托盘、`Ctrl + Shift + Space` 显示/隐藏；
+- 修复安装后桌面/开始菜单快捷方式图标为空的问题；
 - 安装包内附 MIT 许可、第三方声明和非官方品牌声明。
 
 ## 安装
