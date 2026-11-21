@@ -1,0 +1,74 @@
+html,
+body,
+#root {
+  width: 64px;
+  height: 64px;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ball {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.16s ease;
+  touch-action: none;
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+.ball .whale {
+  width: 54px;
+  height: auto;
+  pointer-events: none;
+}
+
+.ball .tail {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-90deg);
+}
+
+body.tucked-left .ball .whale,
+body.tucked-right .ball .whale {
+  display: none;
+}
+
+body.tucked-left .ball .tail,
+body.tucked-right .ball .tail {
+  display: block;
+}
+
+body.tucked-left .ball .tail {
+  left: auto;
+  right: 0;
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.ball:hover {
+  transform: scale(1.06);
+}
+
+.ball:active {
+  transform: scale(0.95);
+}
