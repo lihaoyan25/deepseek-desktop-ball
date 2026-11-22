@@ -1,10 +1,16 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_global_shortcut::{
+  Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+};
+
+mod capture;
+mod selection;
 
 #[cfg(target_os = "windows")]
 fn make_frameless(window: &tauri::WebviewWindow) {
@@ -28,6 +34,31 @@ fn make_frameless(window: &tauri::WebviewWindow) {
       let new_ex = (ex & !(WS_EX_APPWINDOW.0 as isize)) | WS_EX_TOOLWINDOW.0 as isize;
       SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_ex);
 
+      let _ = SetWindowPos(
+        hwnd,
+        None,
+        0,
+        0,
+        0,
+        0,
+        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+      );
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn make_noactivate(window: &tauri::WebviewWindow) {
+  use windows::Win32::UI::WindowsAndMessaging::{
+    GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, SWP_FRAMECHANGED,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+  };
+
+  if let Ok(hwnd) = window.hwnd() {
+    unsafe {
+      let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+      let new_ex = ex | WS_EX_NOACTIVATE.0 as isize | WS_EX_TOOLWINDOW.0 as isize;
+      SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_ex);
       let _ = SetWindowPos(
         hwnd,
         None,
@@ -136,6 +167,8 @@ struct PanelState {
   mode: Mutex<PanelMode>,
   sizes: Mutex<PanelSizes>,
   last_size_save: Mutex<Instant>,
+  temporary_compact: AtomicBool,
+  resume_mode: Mutex<Option<PanelMode>>,
 }
 
 impl Default for PanelState {
@@ -144,7 +177,34 @@ impl Default for PanelState {
       mode: Mutex::new(PanelMode::Mini),
       sizes: Mutex::new(PanelSizes::default()),
       last_size_save: Mutex::new(Instant::now()),
+      temporary_compact: AtomicBool::new(false),
+      resume_mode: Mutex::new(None),
     }
+  }
+}
+
+/** 划词紧凑窗口只借用当前主窗口，不覆盖用户原有的尺寸、位置和模式。 */
+pub(crate) fn begin_temporary_compact(app: &AppHandle) {
+  let state = app.state::<PanelState>();
+  if state.temporary_compact.swap(true, Ordering::Relaxed) {
+    return;
+  }
+  if let (Ok(mode), Ok(mut resume)) = (state.mode.lock(), state.resume_mode.lock()) {
+    *resume = Some(*mode);
+  }
+}
+
+pub(crate) fn end_temporary_compact(app: &AppHandle) {
+  let state = app.state::<PanelState>();
+  if !state.temporary_compact.swap(false, Ordering::Relaxed) {
+    return;
+  }
+  let resume = state.resume_mode.lock().ok().and_then(|mut mode| mode.take());
+  if let Some(mode) = resume {
+    if let Ok(mut current) = state.mode.lock() {
+      *current = mode;
+    }
+    emit_panel_mode(app, mode);
   }
 }
 
@@ -233,6 +293,9 @@ fn emit_panel_mode(app: &AppHandle, mode: PanelMode) {
 
 fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
   let state = app.state::<PanelState>();
+  if state.temporary_compact.load(Ordering::Relaxed) {
+    return;
+  }
   let mode = match state.mode.lock() {
     Ok(mode) => *mode,
     Err(_) => return,
@@ -273,6 +336,13 @@ fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
 }
 
 fn remember_current_panel_size(app: &AppHandle, force: bool) {
+  if app
+    .state::<PanelState>()
+    .temporary_compact
+    .load(Ordering::Relaxed)
+  {
+    return;
+  }
   let Some(panel) = app.get_webview_window("panel") else {
     return;
   };
@@ -385,6 +455,7 @@ fn hide_panel_and_restore(app: &AppHandle) {
     set_taskbar_visible(&panel, false);
     let _ = panel.hide();
   }
+  end_temporary_compact(app);
   if let Some(ball) = app.get_webview_window("ball") {
     restore_ball(app, &ball);
   }
@@ -729,15 +800,24 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .plugin(
       tauri_plugin_global_shortcut::Builder::new()
-        .with_handler(|app, _shortcut, event| {
+        .with_handler(|app, shortcut, event| {
           if event.state == ShortcutState::Pressed {
-            toggle(app);
+            if shortcut.matches(
+              Modifiers::CONTROL | Modifiers::SHIFT,
+              Code::KeyA,
+            ) {
+              capture::start_capture(app);
+            } else {
+              toggle(app);
+            }
           }
         })
         .build(),
     )
     .manage(BallRest::default())
     .manage(PanelState::default())
+    .manage(selection::SelectionState::default())
+    .manage(capture::CaptureState::default())
     .invoke_handler(tauri::generate_handler![
       toggle_panel,
       toggle_from_ball,
@@ -746,7 +826,12 @@ pub fn run() {
       maximize_panel,
       restore_panel,
       panel_mode,
-      reset_panel_size
+      reset_panel_size,
+      selection::set_selection_assistant_enabled,
+      selection::selection_action,
+      capture::capture_image,
+      capture::capture_action,
+      capture::capture_cancel
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -758,12 +843,14 @@ pub fn run() {
       }
 
       let toggle_item = MenuItem::with_id(app, "toggle", "显示 / 隐藏", true, None::<&str>)?;
+      let screenshot_item = MenuItem::with_id(app, "screenshot", "截图问答", true, None::<&str>)?;
       let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-      let menu = Menu::with_items(app, &[&toggle_item, &quit_item])?;
+      let menu = Menu::with_items(app, &[&toggle_item, &screenshot_item, &quit_item])?;
       let mut tray = TrayIconBuilder::new()
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
           "toggle" => toggle(app),
+          "screenshot" => capture::start_capture(app),
           "quit" => {
             remember_current_panel_size(app, true);
             app.exit(0);
@@ -776,6 +863,33 @@ pub fn run() {
       let _ = tray.build(app);
 
       let _ = app.global_shortcut().register("Ctrl+Shift+Space");
+      let _ = app.global_shortcut().register(Shortcut::new(
+        Some(Modifiers::CONTROL | Modifiers::SHIFT),
+        Code::KeyA,
+      ));
+
+      if let Some(capture_window) = app.get_webview_window("capture") {
+        #[cfg(target_os = "windows")]
+        {
+          make_frameless(&capture_window);
+          remove_border(&capture_window);
+        }
+        let _ = capture_window.set_skip_taskbar(true);
+        let _ = capture_window.set_always_on_top(true);
+      }
+
+      if let Some(selection_window) = app.get_webview_window("selection") {
+        #[cfg(target_os = "windows")]
+        {
+          make_frameless(&selection_window);
+          make_noactivate(&selection_window);
+          remove_border(&selection_window);
+        }
+        let _ = selection_window.set_skip_taskbar(true);
+        let _ = selection_window.set_always_on_top(true);
+      }
+
+      selection::start(app.handle().clone());
 
       if let Some(panel) = app.get_webview_window("panel") {
         #[cfg(target_os = "windows")]

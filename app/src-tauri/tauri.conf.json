@@ -32,6 +32,38 @@
         "visible": false
       },
       {
+        "label": "selection",
+        "url": "selection.html",
+        "title": "DeepSeek",
+        "width": 360,
+        "height": 48,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "center": false,
+        "visible": false
+      },
+      {
+        "label": "capture",
+        "url": "capture.html",
+        "title": "DeepSeek",
+        "width": 100,
+        "height": 100,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "center": false,
+        "visible": false
+      },
+      {
         "label": "ball",
         "url": "ball.html",
         "title": "DeepSeek",

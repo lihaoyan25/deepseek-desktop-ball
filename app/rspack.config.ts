@@ -32,6 +32,8 @@ export const createConfig = ({
   entry: {
     main: './src/main.tsx',
     ball: './src/ball/main.tsx',
+    selection: './src/selection/main.tsx',
+    capture: './src/capture/main.tsx',
   },
   output: {
     path: path.resolve(root, 'dist'),
@@ -87,6 +89,18 @@ export const createConfig = ({
       chunks: ['ball'],
       scriptLoading: 'defer',
     }),
+    new rspack.HtmlRspackPlugin({
+      filename: 'selection.html',
+      template: './src/selection.html',
+      chunks: ['selection'],
+      scriptLoading: 'defer',
+    }),
+    new rspack.HtmlRspackPlugin({
+      filename: 'capture.html',
+      template: './src/capture.html',
+      chunks: ['capture'],
+      scriptLoading: 'defer',
+    }),
     new rspack.DefinePlugin({ __API_ORIGIN__: JSON.stringify(apiOrigin) }),
     new rspack.CopyRspackPlugin({
       patterns: [{ from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' }],
@@ -96,4 +110,5 @@ export const createConfig = ({
   devServer: { port: 8090, ...devServer },
 })
 
+// oxlint-disable-next-line import/no-default-export -- rspack requires a default config export.
 export default defineConfig(createConfig())

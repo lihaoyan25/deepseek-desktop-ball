@@ -9,10 +9,14 @@ import type { PanelMode } from './panelMode.js'
 import {
   bindChatPersistence,
   initChat,
+  newChat,
   retrySaveSessions,
   selectSession,
+  sendMessage,
   useChatStore,
 } from '../services/chat/store.js'
+import { setDraftText, addDraftFiles, getDraft } from '../services/chat/drafts.js'
+import { useUploads } from '../services/attachments.js'
 import { SearchPanel } from '../components/search/SearchPanel.js'
 import { closeSearchPanel } from '../components/search/searchPanelState.js'
 import { useSearchPanel } from '../components/search/searchPanelState.js'
@@ -37,6 +41,7 @@ export const App = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
   const locale = useSettings((state) => state.locale)
+  const selectionAssistant = useSettings((state) => state.selectionAssistant)
   // 移动端侧边栏以独立抽屉管理开合状态
   const siderCollapsed = useSettings((state) => state.siderCollapsed) && !isMobile
   const ready = useChatStore((state) => state.ready)
@@ -80,6 +85,131 @@ export const App = () => {
     void initChat()
     // 首次打开先在设置里输入 API Key
     ensureApiKey()
+  }, [])
+
+  useEffect(() => {
+    void invoke('set_selection_assistant_enabled', { enabled: selectionAssistant })
+  }, [selectionAssistant])
+
+  useEffect(() => {
+    let alive = true
+    let unlisten: (() => void) | undefined
+    void listen<{ action: string; dataUrl: string }>('selection-image-action', (event) => {
+      const { action, dataUrl } = event.payload
+      const prompt =
+        action === 'summarize'
+          ? '请总结这张截图。'
+          : action === 'translate'
+            ? '请翻译截图中的文字。'
+            : action === 'search'
+              ? '请搜索并总结这张截图的内容。'
+              : '请解释这张截图。'
+      void (async () => {
+        const apiKey = useSettings.getState().apiKey
+        if (!apiKey) {
+          ensureApiKey()
+          return
+        }
+        const response = await fetch(dataUrl)
+        const blob = await response.blob()
+        const file = new File([blob], 'screenshot.png', { type: 'image/png' })
+        newChat()
+        const error = addDraftFiles(null, [file], apiKey)
+        if (error) {
+          showToast(error)
+          return
+        }
+        setDraftText(null, prompt)
+        let sent = false
+        const deadline = Date.now() + 30_000
+        const waitForUpload = () => {
+          if (sent || !alive) {
+            return
+          }
+          const draft = getDraft(null)
+          const tasks = useUploads.getState().tasks
+          if (draft.attachments.some((attachment) => tasks[attachment.id]?.status === 'error')) {
+            showToast(t('uploadFileStatusFailed'))
+            return
+          }
+          if (
+            draft.attachments.length > 0 &&
+            draft.attachments.every((attachment) => tasks[attachment.id]?.status === 'done')
+          ) {
+            sent = true
+            const previousSearch = useSettings.getState().search
+            const useSearch = action === 'search'
+            if (useSearch) {
+              useSettings.setState({ search: true })
+            }
+            sendMessage(null)
+            if (useSearch) {
+              useSettings.setState({ search: previousSearch })
+            }
+            return
+          }
+          if (Date.now() > deadline) {
+            showToast(t('uploadFileStatusFailed'))
+            return
+          }
+          window.setTimeout(waitForUpload, 100)
+        }
+        waitForUpload()
+      })().catch(() => {
+        showToast(t('uploadFileStatusFailed'))
+      })
+    }).then((stop) => {
+      if (alive) {
+        unlisten = stop
+      } else {
+        stop()
+      }
+    })
+    return () => {
+      alive = false
+      unlisten?.()
+    }
+  }, [t])
+
+  useEffect(() => {
+    let alive = true
+    let unlisten: (() => void) | undefined
+    void listen<{ action: string; text: string }>('selection-action', (event) => {
+      const { action, text } = event.payload
+      if (!text) {
+        return
+      }
+      const target = /[\u3400-\u9fff]/.test(text) ? '英文' : '中文'
+      const prompt =
+        action === 'summarize'
+          ? `总结一下：\n\n“${text}”`
+          : action === 'translate'
+            ? `把下面内容翻译成${target}：\n\n“${text}”`
+            : action === 'search'
+              ? `搜索并总结：\n\n“${text}”`
+              : `解释一下：\n\n“${text}”`
+      const previousSearch = useSettings.getState().search
+      const useSearch = action === 'search'
+      if (useSearch) {
+        useSettings.setState({ search: true })
+      }
+      newChat()
+      setDraftText(null, prompt)
+      sendMessage(null)
+      if (useSearch) {
+        useSettings.setState({ search: previousSearch })
+      }
+    }).then((stop) => {
+      if (alive) {
+        unlisten = stop
+      } else {
+        stop()
+      }
+    })
+    return () => {
+      alive = false
+      unlisten?.()
+    }
   }, [])
 
   useEffect(() => {

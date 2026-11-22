@@ -26,12 +26,14 @@ The installer is unsigned. If Windows SmartScreen appears, choose **Run anyway**
 - Maximized mode, top-right: restore mini mode, hide. Both modes can be dragged and resized.
 - Drag a window edge or corner to resize. Double-click the title bar to switch between mini and maximized. Size and position are remembered per mode.
 - Settings → General → Window size → Reset size restores the default window size.
+- Settings → General → Selection AI enables the global selection toolbar. Press `Ctrl + Shift + A` for screenshot Q&A.
 
 ## Features
 
 - Floating ball with drag, edge tucking, and single-instance behavior.
 - Freely resizable mini and maximized windows (minimum 320×400), with per-mode size and position remembered.
 - Compact layout for small windows: the welcome text, messages, input field, and controls scale down together.
+- Selection AI toolbar for explain, summarize, translate, copy, and search. Text automatically opens in a compact chat; screenshots are sent through the existing DeepSeek image attachment path.
 - Markdown, syntax highlighting, KaTeX math, thinking traces, deep thinking, smart search, and source citations.
 - Conversation search in the sidebar, full-history message search, pinned sessions, and batch pin/delete.
 - Turn navigation rail with prompt/reply previews and click-to-jump navigation.

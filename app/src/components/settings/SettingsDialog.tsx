@@ -23,6 +23,7 @@ import {
   isChineseBrowser,
   setLocale,
   setLocation,
+  setSelectionAssistant,
   setThemePreference,
   setTtsVoice,
   useSettings,
@@ -32,6 +33,7 @@ import { useTranslate, type TranslationKey, type TranslationMessage } from '../.
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
+import { Switch } from '../base/Switch.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
@@ -101,6 +103,7 @@ const SettingsContent = () => {
               <LocaleSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+              <SelectionAssistantSetting />
               <WindowSizeSetting />
             </>
           ) : (
@@ -205,6 +208,26 @@ const useHistoryDelete = () => {
     },
     confirm,
   }
+}
+
+/** 划词 AI 是全局功能，默认关闭，由用户明确开启。 */
+const SelectionAssistantSetting = () => {
+  const t = useTranslate()
+  const enabled = useSettings((state) => state.selectionAssistant)
+  return (
+    <SettingCell
+      label={t('selectionAssistant')}
+      description={t('selectionAssistantDescription')}
+      status={null}
+      action={
+        <Switch
+          checked={enabled}
+          ariaLabel={t('selectionAssistant')}
+          onChange={setSelectionAssistant}
+        />
+      }
+    />
+  )
 }
 
 /** 窗口尺寸恢复默认；位置保持不变。 */
