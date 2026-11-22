@@ -23,6 +23,7 @@
   text-overflow: ellipsis;
   font: var(--dsw-font-s-strong-14);
   color: var(--dsw-alias-label-primary);
+  transition: margin-left 240ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .withCollapsedSider {

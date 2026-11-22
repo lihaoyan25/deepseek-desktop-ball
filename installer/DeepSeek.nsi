@@ -25,7 +25,12 @@ ShowUninstDetails show
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimpChinese"
+
+Function .onInit
+  !insertmacro MUI_LANGDLL_DISPLAY
+FunctionEnd
 
 VIProductVersion "0.1.0.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
@@ -40,7 +45,9 @@ Section "Install"
   File "..\app\src-tauri\target\release\WebView2Loader.dll"
   File /oname=LICENSE.txt "..\LICENSE"
   File /oname=THIRD_PARTY_NOTICES.txt "..\THIRD_PARTY_NOTICES.md"
+  File /oname=THIRD_PARTY_NOTICES.zh-CN.txt "..\THIRD_PARTY_NOTICES.zh-CN.md"
   File /oname=TRADEMARKS.txt "..\TRADEMARKS.md"
+  File /oname=TRADEMARKS.zh-CN.txt "..\TRADEMARKS.zh-CN.md"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   CreateDirectory "$SMPROGRAMS\${APPNAME}"
@@ -64,7 +71,9 @@ Section "Uninstall"
   Delete "$INSTDIR\WebView2Loader.dll"
   Delete "$INSTDIR\LICENSE.txt"
   Delete "$INSTDIR\THIRD_PARTY_NOTICES.txt"
+  Delete "$INSTDIR\THIRD_PARTY_NOTICES.zh-CN.txt"
   Delete "$INSTDIR\TRADEMARKS.txt"
+  Delete "$INSTDIR\TRADEMARKS.zh-CN.txt"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPID}"

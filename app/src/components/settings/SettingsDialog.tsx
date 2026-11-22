@@ -121,6 +121,16 @@ const SettingsContent = () => {
                   </Button>
                 }
               />
+              <div className={styles.usageLinkRow}>
+                <a
+                  className={styles.usageLink}
+                  href="https://platform.deepseek.com/usage"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t('viewDeepSeekUsage')}
+                </a>
+              </div>
               {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
             </>
           )}

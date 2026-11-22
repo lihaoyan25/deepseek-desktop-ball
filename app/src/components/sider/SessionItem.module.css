@@ -10,6 +10,9 @@
   line-height: 22px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
 
   &.active {
     background-color: var(--dsw-specific-sidebar-nav-item-active-accent);
@@ -45,6 +48,44 @@
   margin-left: 4px;
 }
 
+.selectItem {
+  gap: 10px;
+  padding-left: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+
+  &:hover {
+    background: var(--dsw-specific-sidebar-nav-item-hover);
+  }
+
+  &.selected {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.checkbox {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--dsw-alias-label-tertiary);
+  border-radius: 50%;
+  color: var(--dsw-alias-brand-primary-invert);
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.checkboxChecked {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-brand-primary);
+}
+
 .renameInput {
   box-sizing: border-box;
   width: 100%;
@@ -71,6 +112,16 @@
     padding: 11px 6px 11px 12px;
     border-radius: 16px;
     font-size: 16px;
+  }
+
+  .selectItem {
+    padding-left: 8px;
+  }
+
+  .checkbox {
+    width: 22px;
+    height: 22px;
+    margin-right: 2px;
   }
 
   .title {

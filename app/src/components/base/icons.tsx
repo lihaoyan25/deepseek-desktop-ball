@@ -572,3 +572,40 @@ export const IconToastError16 = () => (
     />
   </svg>
 )
+
+/** 官方 pin-outline 图标 */
+export const IconPinOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M9.96976 1.70572L13.1554 3.93629L10.9019 8.12317L11.5158 11.605L10.7192 12.7427L2.52767 7.00693L3.3243 5.86922L6.80612 5.25528L9.96976 1.70572Z"
+      stroke="currentColor"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.05285 9.47511C6.27284 9.16094 6.70586 9.08458 7.02003 9.30457C7.3342 9.52455 7.41055 9.95757 7.19057 10.2717L3.98587 14.4708L3.21223 13.9291L6.05285 9.47511Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
+/** 官方 checklist-outline 图标，用于“多选” */
+export const IconChecklistOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3.75 6.25C4.7165 6.25 5.5 5.4665 5.5 4.5C5.5 3.5335 4.7165 2.75 3.75 2.75C2.7835 2.75 2 3.5335 2 4.5C2 5.4665 2.7835 6.25 3.75 6.25Z" stroke="currentColor" />
+    <path d="M7.5 4.5H13.5" stroke="currentColor" />
+    <path d="M3.75 13.25C4.7165 13.25 5.5 12.4665 5.5 11.5C5.5 10.5335 4.7165 9.75 3.75 9.75C2.7835 9.75 2 10.5335 2 11.5C2 12.4665 2.7835 13.25 3.75 13.25Z" stroke="currentColor" />
+    <path d="M7.5 11.5H13.5" stroke="currentColor" />
+  </svg>
+)
+
+/** 搜索结果中的对话气泡 */
+export const IconChatBubbleOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M3.3 2.75h9.4c.8 0 1.4.6 1.4 1.4v6.1c0 .8-.6 1.4-1.4 1.4H7.2l-3.3 2.3v-2.3H3.3c-.8 0-1.4-.6-1.4-1.4V4.15c0-.8.6-1.4 1.4-1.4Z"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+    />
+  </svg>
+)

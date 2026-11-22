@@ -103,7 +103,10 @@ const getStreamController = (id: string) => {
 }
 
 const sameSummary = (a: SessionSummary, b: SessionSummary) =>
-  a.title === b.title && a.createdAt === b.createdAt && a.updatedAt === b.updatedAt
+  a.title === b.title &&
+  a.createdAt === b.createdAt &&
+  a.updatedAt === b.updatedAt &&
+  a.pinnedAt === b.pinnedAt
 
 const sessionAccess = new Map<string, number>()
 const unsavedSessions = new Set<string>()
@@ -477,8 +480,37 @@ export const renameSession = (id: string, title: string) => {
   }
 }
 
-/**
- * 删除会话；本地原件仅在没有其他会话引用时清理。远端文件不删：导入、编辑、重新生成都会复用同一个附件，
+/** 设置一个或多个会话的置顶状态。返回是否成功。 */
+export const setSessionsPinned = async (
+  ids: readonly string[],
+  pinned: boolean
+): Promise<boolean> => {
+  if (get().importingHistory || ids.length === 0) {
+    return false
+  }
+  const pinnedAt = pinned ? Date.now() : null
+  try {
+    await Promise.all(ids.map((id) => db.setSessionPinned(id, pinnedAt)))
+    const selected = new Set(ids)
+    set((state) => ({
+      sessions: state.sessions.map((session) =>
+        selected.has(session.id) ? { ...session, pinnedAt } : session
+      ),
+      sessionCache: Object.fromEntries(
+        Object.entries(state.sessionCache).map(([id, session]) => [
+          id,
+          selected.has(id) ? { ...session, pinnedAt } : session,
+        ])
+      ),
+    }))
+    return true
+  } catch (error) {
+    db.reportStorageError('pin session')(error)
+    return false
+  }
+}
+
+/** 删除会话；本地原件仅在没有其他会话引用时清理。远端文件不删：导入、编辑、重新生成都会复用同一个附件，
  * 同一服务端文件可能被多个会话引用，不维护引用计数。
  */
 export const removeSession = (id: string): Promise<boolean> => {

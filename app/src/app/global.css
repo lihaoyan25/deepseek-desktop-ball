@@ -37,10 +37,55 @@ body[data-ds-dark-theme] {
   --scroll-color-hover: rgba(255, 255, 255, 0.24);
 }
 
+/* 统一交互反馈的过渡；组件自己的 transition 仍可覆盖。 */
+button,
+a,
+[role='button'],
+[role='menuitem'] {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease;
+}
+
 body.change-theme *,
 body.change-theme *::before,
 body.change-theme *::after {
   transition: none !important;
+}
+
+/* 复用 chat-demo 的原生滚动条宽度，仅隐藏两端的三角按钮。 */
+:root {
+  --scrollbar-size: 12px;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scroll-color);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-color-hover);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @media not all and (min-width: 768px) {

@@ -42,7 +42,7 @@ export const SessionView = ({
         session={session}
         streaming={streaming}
         footer={
-          <div className={styles.inputContainer}>
+          <div className={styles.inputContainer} data-chat-footer>
             <ChatInput sessionId={session.id} />
             {isMobile ? null : <div className={styles.caveat}>{t('contentCaveat')}</div>}
           </div>

@@ -6,10 +6,27 @@ const DAY = 86_400_000
 
 const startOfDay = (time: number) => new Date(time).setHours(0, 0, 0, 0)
 
-/** 分组：今天 / 昨天 / 7 天内 / 30 天内 / 按月 */
+/** 分组：置顶 / 今天 / 昨天 / 7 天内 / 30 天内 / 按月 */
 export const groupSessions = (sessions: SessionSummary[], now: number, t = translate) => {
   const groups: { key: string; label: string; sessions: SessionSummary[] }[] = []
+  const pinned = sessions
+    .filter((session) => Boolean(session.pinnedAt))
+    .sort(
+      (a, b) =>
+        (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0) ||
+        b.updatedAt - a.updatedAt
+    )
+  if (pinned.length > 0) {
+    groups.push({
+      key: 'pinned',
+      label: t('sessionHistoryTimelineLabelPinned'),
+      sessions: pinned,
+    })
+  }
   for (const session of sessions) {
+    if (session.pinnedAt) {
+      continue
+    }
     const diff = Math.floor((now - startOfDay(session.updatedAt)) / DAY)
     const key =
       diff <= 0

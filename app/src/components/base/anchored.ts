@@ -129,6 +129,11 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
       return
     }
     const rect = anchor.getBoundingClientRect()
+    // 触发元素在菜单打开后可能因 hover 样式暂时 display:none，
+    // 此时尺寸会变成 0，不能把菜单重新定位到左上角。
+    if (rect.width === 0 || rect.height === 0) {
+      return
+    }
     const spaceAbove = rect.top - offset - VIEWPORT_PADDING
     const spaceBelow = window.innerHeight - rect.bottom - offset - VIEWPORT_PADDING
 

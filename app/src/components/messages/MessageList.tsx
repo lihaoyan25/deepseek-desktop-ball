@@ -10,6 +10,8 @@ import type { Session } from '../../services/chat/types.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
 import { AssistantMessage } from './AssistantMessage.js'
 import { ScrollToBottomContext } from './scrollContext.js'
+import { TurnNavigator } from './TurnNavigator.js'
+import { buildTurnRailItems, type TurnRailItem } from './turnRail.js'
 import { UserMessage } from './UserMessage.js'
 import type { Message } from '../../services/chat/types.js'
 
@@ -48,7 +50,8 @@ export const MessageList = ({
   const stickyRef = useRef(true)
   const scrollTopRef = useRef(0)
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
-  const messages = getVisibleMessages(session)
+  const messages = useMemo(() => getVisibleMessages(session), [session])
+  const railItems = useMemo(() => buildTurnRailItems(messages), [messages])
   const [previousVersions, setPreviousVersions] = useState(() =>
     buildMessageVersions(session, new Map())
   )
@@ -114,6 +117,27 @@ export const MessageList = ({
     [session.id, streaming]
   )
 
+  const navigateToTurn = useCallback((item: TurnRailItem) => {
+    const scroll = scrollRef.current
+    if (!scroll) {
+      return
+    }
+    const target = scroll.querySelector<HTMLElement>(
+      `[data-turn-id="${CSS.escape(item.id)}"]`
+    )
+    if (!target) {
+      return
+    }
+    stickyRef.current = false
+    closeSearchPanel()
+    const top =
+      scroll.scrollTop +
+      target.getBoundingClientRect().top -
+      scroll.getBoundingClientRect().top -
+      16
+    scroll.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  }, [])
+
   // 跨移动端断点时切换滚动层，并保持输入框及当前阅读位置。
   useLayoutEffect(() => {
     const el = scrollRef.current
@@ -143,38 +167,48 @@ export const MessageList = ({
   const uploadRetryId = getUploadRetryId(messages, streaming)
   return (
     <ScrollToBottomContext.Provider value={scrollToBottom}>
-      <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
-        <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
-          <div ref={contentRef} className={styles.column}>
-            {messages.map((message, index) =>
-              message.role === 'user' ? (
-                <UserMessage
-                  key={message.id}
-                  sessionId={session.id}
-                  message={message}
-                  retryUploadId={uploadRetryId}
-                  isFirst={index === 0}
-                  isLast={index === lastIndex || index === lastIndex - 1}
-                  busy={streaming}
-                  versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                  onSelectVersion={selectVersion}
-                />
-              ) : (
-                <AssistantMessage
-                  key={message.id}
-                  sessionId={session.id}
-                  message={message}
-                  isLast={index === lastIndex}
-                  streaming={streaming && index === lastIndex}
-                  busy={streaming}
-                  versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                  onSelectVersion={selectVersion}
-                />
-              )
-            )}
+      <div className={styles.viewport}>
+        <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
+          <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
+            <div ref={contentRef} className={styles.column}>
+              {messages.map((message, index) =>
+                message.role === 'user' ? (
+                  <UserMessage
+                    key={message.id}
+                    sessionId={session.id}
+                    message={message}
+                    retryUploadId={uploadRetryId}
+                    isFirst={index === 0}
+                    isLast={index === lastIndex || index === lastIndex - 1}
+                    busy={streaming}
+                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                    onSelectVersion={selectVersion}
+                  />
+                ) : (
+                  <AssistantMessage
+                    key={message.id}
+                    sessionId={session.id}
+                    message={message}
+                    isLast={index === lastIndex}
+                    streaming={streaming && index === lastIndex}
+                    busy={streaming}
+                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                    onSelectVersion={selectVersion}
+                  />
+                )
+              )}
+            </div>
           </div>
+          {footer}
         </div>
-        {footer}
+        {isMobile ? null : (
+          <TurnNavigator
+            items={railItems}
+            scrollRef={scrollRef}
+            contentRef={contentRef}
+            onNavigate={navigateToTurn}
+          />
+        )}
       </div>
     </ScrollToBottomContext.Provider>
   )

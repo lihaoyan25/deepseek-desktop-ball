@@ -1,3 +1,11 @@
+.viewport {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .container {
   flex: 1;
   min-height: 0;
@@ -5,7 +13,12 @@
   flex-direction: column;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
-  scrollbar-color: var(--scroll-color) transparent;
+}
+
+@media (min-width: 768px) {
+  .container {
+    margin-right: 1px;
+  }
 }
 
 .scroll {
@@ -25,7 +38,6 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior-y: contain;
-    scrollbar-color: var(--scroll-color) transparent;
   }
 }
 

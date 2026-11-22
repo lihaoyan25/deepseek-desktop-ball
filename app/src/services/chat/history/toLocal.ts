@@ -286,6 +286,7 @@ export const toLocalSession = (file: SessionFile): LocalSession => {
     title: file.title ?? '',
     createdAt: time(file.inserted_at),
     updatedAt: time(file.updated_at),
+    pinnedAt: file.pinned ? time(file.inserted_at) : null,
     ...buildTree(file),
   }
   const images = new Map<string, string>()
