@@ -1,6 +1,6 @@
 ﻿# DeepSeek Floating Ball (Unofficial)
 
-English | [绠€浣撲腑鏂嘳(README.zh-CN.md)
+English | [简体中文](README.zh-CN.md)
 
 An unofficial Windows desktop floating client for DeepSeek, built with Tauri. The chat interface is based on [chat-demo](https://github.com/deepseek-ai/chat-demo); the floating ball, window management, and desktop integration are implemented by this project.
 
