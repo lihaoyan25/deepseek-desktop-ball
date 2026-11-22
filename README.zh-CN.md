@@ -45,8 +45,6 @@
 
 API Key 和设置保存在本机应用数据中，窗口尺寸和位置保存在同目录的 `panel-sizes.json`，会话和附件保存在本地浏览器存储中。本项目不提供后端服务，也不内嵌 DeepSeek 官方网页。发送消息、上传附件或使用语音功能时，相应内容会提交给所配置的 API 服务。本项目不收集遥测数据。
 
-请不要将 API Key、`.env` 文件、应用本地数据或日志提交到 Git。
-
 ## 开发
 
 需要 Node.js 24+、pnpm 11+、Rust stable（Windows GNU toolchain）、MSYS2 MinGW-w64、WebView2 Runtime，以及用于构建安装包的 NSIS。

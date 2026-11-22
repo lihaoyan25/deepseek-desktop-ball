@@ -1,4 +1,4 @@
-﻿# DeepSeek Floating Ball (Unofficial)
+# DeepSeek Floating Ball (Unofficial)
 
 English | [简体中文](README.zh-CN.md)
 
@@ -44,8 +44,6 @@ The installer is unsigned. If Windows SmartScreen appears, choose **Run anyway**
 ## Data and storage
 
 Your API key and settings are stored in local application data. Window geometry is stored in `panel-sizes.json` there. Conversations and attachments are stored in local browser storage. This project does not provide a backend service or embed the official DeepSeek website. Sending messages, uploading attachments, or using speech features sends the relevant content to the configured API service. This project collects no telemetry.
-
-Do not commit API keys, `.env` files, local application data, or logs to Git.
 
 ## Development
 
