@@ -55,11 +55,29 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const search = useSettings((state) => state.search)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const togglesRef = useRef<HTMLDivElement>(null)
   const [multiline, setMultiline] = useState(false)
   const expandedLayout = multiline || !isMobile
   const multilineRef = useRef(false)
   multilineRef.current = multiline
   const singleLineWidthRef = useRef(0)
+
+  useLayoutEffect(() => {
+    const toggles = togglesRef.current
+    if (!toggles) {
+      return
+    }
+
+    const updateLabels = () => {
+      toggles.classList.remove(styles.collapsedToggles)
+      toggles.classList.toggle(styles.collapsedToggles, toggles.scrollWidth > toggles.clientWidth)
+    }
+
+    updateLabels()
+    const observer = new ResizeObserver(updateLabels)
+    observer.observe(toggles)
+    return () => observer.disconnect()
+  }, [t])
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -88,6 +106,17 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       setMultiline(wraps)
     }
   }, [text, sessionId, isMobile])
+
+  // 单行输入在粘贴长文本时可能已经横向滚动；切到多行后要回到左边缘，
+  // 否则首字会被滚动位置裁掉，看起来像贴边或缺少左边距。
+  useLayoutEffect(() => {
+    if (multiline) {
+      const textarea = textareaRef.current
+      if (textarea) {
+        textarea.scrollLeft = 0
+      }
+    }
+  }, [multiline, text])
 
   const acceptFiles = (files: File[]) => {
     if (files.length === 0 || useChatStore.getState().importingHistory || !ensureApiKey()) {
@@ -241,8 +270,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         </div>
       </div>
       <div className={styles.actionsSlot}>
-        {/* 深度思考 / 智能搜索：官方图标开关，文字只保留在 tooltip 和无障碍名称里 */}
-        <div className={styles.toggles}>
+        {/* 深度思考 / 智能搜索开关，tooltip 在按钮上方 */}
+        <div ref={togglesRef} className={styles.toggles}>
           <Tooltip content={t('deactivatedThinkTooltip')}>
             <button
               type="button"
@@ -252,6 +281,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               onClick={() => setThinking(!thinking)}
             >
               <IconThinkOutline14 />
+              <span className={styles.toggleLabel}>{t('thinkingSwitch')}</span>
             </button>
           </Tooltip>
           <Tooltip content={t('deactivatedSearchTooltip')}>
@@ -263,6 +293,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               onClick={() => setSearch(!search)}
             >
               <IconGlobeLanguageOutline14 />
+              <span className={styles.toggleLabel}>{t('search')}</span>
             </button>
           </Tooltip>
         </div>
