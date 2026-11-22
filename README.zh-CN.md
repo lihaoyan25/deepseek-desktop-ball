@@ -1,71 +1,113 @@
-﻿# DeepSeek 鎮诞鐞冿紙闈炲畼鏂癸級
+# DeepSeek 悬浮球（非官方）
 
-[English](README.md) | 绠€浣撲腑鏂?
-涓€涓潰鍚?Windows 鐨?DeepSeek 妗岄潰鎮诞瀹㈡埛绔紝浣跨敤 Tauri 鏋勫缓銆傝亰澶╃晫闈㈠熀浜?[chat-demo](https://github.com/deepseek-ai/chat-demo)锛屾偓娴悆銆佺獥鍙ｇ鐞嗗拰妗岄潰闆嗘垚鐢辨湰椤圭洰瀹炵幇銆?
-> 鏈」鐩负闈炲畼鏂归」鐩紝涓?DeepSeek 瀹樻柟鏃犻毝灞炪€佸悎浣滄垨鑳屼功鍏崇郴銆侱eepSeek 鍝佺墝绱犳潗鐨勬潈鍒╁綊鍏舵潈鍒╀汉鎵€鏈夛紝璇﹁ [TRADEMARKS.zh-CN.md](TRADEMARKS.zh-CN.md)銆?
-## 涓嬭浇
+[English](README.md) | 简体中文
 
-鍓嶅線 [Releases](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/latest) 涓嬭浇鏈€鏂板畨瑁呭寘锛?
+一个面向 Windows 的 DeepSeek 桌面悬浮客户端，使用 Tauri 构建。聊天界面基于 [chat-demo](https://github.com/deepseek-ai/chat-demo)，悬浮球、窗口管理和桌面集成由本项目实现。
+
+> 本项目为非官方项目，与 DeepSeek 官方无隶属、合作或背书关系。DeepSeek 品牌素材的权利归其权利人所有，详见 [TRADEMARKS.zh-CN.md](TRADEMARKS.zh-CN.md)。
+
+## 下载
+
+前往 [Releases](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/latest) 下载最新安装包：
+
 - [DeepSeekBall_0.1.0_x64-setup.exe](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/latest/download/DeepSeekBall_0.1.0_x64-setup.exe)
 - [SHA256SUMS.txt](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/latest/download/SHA256SUMS.txt)
 
-鏃犻渶瀹夎 Node.js銆丷ust 鎴栧叾浠栧紑鍙戠幆澧冦€傜郴缁熻姹備负 Windows 10/11 x64锛屽苟闇€瑕?WebView2 Runtime銆傞娆″惎鍔ㄦ椂锛岃鍦ㄨ缃腑濉啓鑷繁鐨?DeepSeek API Key銆?
-瀹夎鍖呮湭绛惧悕銆傚鍑虹幇 Windows SmartScreen 鎻愮ず锛岄€夋嫨鈥滀粛瑕佽繍琛屸€濄€?
-### 甯哥敤鎿嶄綔
+无需安装 Node.js、Rust 或其他开发环境。系统要求为 Windows 10/11 x64，并需要 WebView2 Runtime。首次启动时，请在设置中填写自己的 DeepSeek API Key。
 
-- `Ctrl + Shift + Space`锛氭樉绀烘垨闅愯棌闈㈡澘銆?- 鐐瑰嚮鎮诞鐞冿細鎭㈠涓婃鐨勮糠浣犳垨鏀惧ぇ妯″紡銆?- 鎷栧姩鎮诞鐞冿細绉诲姩浣嶇疆锛涢潬杩戝睆骞曡竟缂樻椂鏀惰捣涓哄熬宸淬€?- 杩蜂綘妯″紡鍙充笂瑙掞細鏂板璇濄€佹斁澶с€佹敹璧枫€?- 鏀惧ぇ妯″紡鍙充笂瑙掞細鎭㈠杩蜂綘妯″紡銆佹敹璧枫€傜獥鍙ｅ彲鎷栧姩锛屽苟淇濇寔鍦ㄤ富鏄剧ず鍣ㄥ伐浣滃尯鍐呫€?
-## 鍔熻兘
+安装包未签名。如出现 Windows SmartScreen 提示，选择“仍要运行”。
 
-- 鎮诞鐞冩敮鎸佹嫋鍔ㄣ€佽创杈规敹璧峰拰鍗曞疄渚嬭繍琛屻€?- 400脳640 鐨勮糠浣犻潰鏉匡紝浠ュ強涓嶅己鍒剁疆椤剁殑鏅€氭斁澶х獥鍙ｃ€?- Markdown銆佷唬鐮侀珮浜€並aTeX 鍏紡銆佹€濊€冭繃绋嬨€佹繁搴︽€濊€冦€佹櫤鑳芥悳绱㈠拰鏉ユ簮寮曠敤銆?- 渚ф爮浼氳瘽鎼滅储銆佸叏鍘嗗彶娑堟伅鎼滅储銆佷細璇濈疆椤跺拰鎵归噺缃《/鍒犻櫎銆?- 瀵硅瘽椤靛彸渚х殑杞瀵艰埅锛屾敮鎸侀棶棰?鍥炲棰勮鍜岀偣鍑昏烦杞€?- 鏈湴浼氳瘽鍘嗗彶锛屾敮鎸佹秷鎭垎鏀€佺紪杈戙€侀噸鏂扮敓鎴愬拰瀵煎叆瀵煎嚭銆?- 鏂囦欢鎷栨斁銆佽闊宠緭鍏ャ€佸洖澶嶆湕璇汇€佺郴缁熸墭鐩樺拰鍏ㄥ眬蹇嵎閿€?- 绠€浣撲腑鏂囧拰鑻辨枃鐣岄潰銆佹祬鑹插拰娣辫壊涓婚锛屼互鍙婂皧閲嶁€滃噺灏戝姩鎬佹晥鏋溾€濈殑鏌斿拰鍔ㄧ敾銆?
-## 鏁版嵁涓庡瓨鍌?
-API Key 鍜岃缃繚瀛樺湪鏈満搴旂敤鏁版嵁涓紝浼氳瘽鍜岄檮浠朵繚瀛樺湪鏈湴娴忚鍣ㄥ瓨鍌ㄤ腑銆傛湰椤圭洰涓嶆彁渚涘悗绔湇鍔★紝涔熶笉鍐呭祵 DeepSeek 瀹樻柟缃戦〉銆傚彂閫佹秷鎭€佷笂浼犻檮浠舵垨浣跨敤璇煶鍔熻兘鏃讹紝鐩稿簲鍐呭浼氭彁浜ょ粰鎵€閰嶇疆鐨?API 鏈嶅姟銆傛湰椤圭洰涓嶆敹闆嗛仴娴嬫暟鎹€?
-璇蜂笉瑕佸皢 API Key銆乣.env` 鏂囦欢銆佸簲鐢ㄦ湰鍦版暟鎹垨鏃ュ織鎻愪氦鍒?Git銆?
-## 寮€鍙?
-闇€瑕?Node.js 24+銆乸npm 11+銆丷ust stable锛圵indows GNU toolchain锛夈€丮SYS2 MinGW-w64銆乄ebView2 Runtime锛屼互鍙婄敤浜庢瀯寤哄畨瑁呭寘鐨?NSIS銆?
+### 常用操作
+
+- `Ctrl + Shift + Space`：显示或隐藏面板。
+- 点击悬浮球：恢复上次的迷你或放大模式。
+- 拖动悬浮球：移动位置；靠近屏幕边缘时收起为尾巴。
+- 迷你模式右上角：新对话、放大、收起。
+- 放大模式右上角：恢复迷你模式、收起。窗口可拖动，并保持在主显示器工作区内。
+
+## 功能
+
+- 悬浮球支持拖动、贴边收起和单实例运行。
+- 400×640 的迷你面板，以及不强制置顶的普通放大窗口。
+- Markdown、代码高亮、KaTeX 公式、思考过程、深度思考、智能搜索和来源引用。
+- 侧栏会话搜索、全历史消息搜索、会话置顶和批量置顶/删除。
+- 对话页右侧的轮次导航，支持问题/回复预览和点击跳转。
+- 本地会话历史，支持消息分支、编辑、重新生成和导入导出。
+- 文件拖放、语音输入、回复朗读、系统托盘和全局快捷键。
+- 简体中文和英文界面、浅色和深色主题，以及柔和的界面过渡动画。
+
+## 数据与存储
+
+API Key 和设置保存在本机应用数据中，会话和附件保存在本地浏览器存储中。本项目不提供后端服务，也不内嵌 DeepSeek 官方网页。发送消息、上传附件或使用语音功能时，相应内容会提交给所配置的 API 服务。本项目不收集遥测数据。
+
+请不要将 API Key、`.env` 文件、应用本地数据或日志提交到 Git。
+
+## 开发
+
+需要 Node.js 24+、pnpm 11+、Rust stable（Windows GNU toolchain）、MSYS2 MinGW-w64、WebView2 Runtime，以及用于构建安装包的 NSIS。
+
 ```sh
 cd app
 pnpm install
 pnpm tauri dev
 ```
 
-寮€鍙戞湇鍔″櫒榛樿杩愯鍦?`http://localhost:8090`銆?
-| 鍛戒护                           | 鐢ㄩ€?                      |
-| ------------------------------ | -------------------------- |
-| `pnpm tauri dev`               | 鍚姩妗岄潰寮€鍙戠幆澧?          |
-| `pnpm tauri build --no-bundle` | 鏋勫缓 release 浜х墿          |
-| `pnpm type`                    | TypeScript 绫诲瀷妫€鏌?       |
-| `pnpm lint`                    | 浣跨敤 oxlint 妫€鏌?          |
-| `pnpm format`                  | 浣跨敤 oxfmt 鏍煎紡鍖?         |
+开发服务器默认运行在 `http://localhost:8090`。
 
-鏋勫缓浜х墿锛?
+| 命令                            | 用途                |
+| ------------------------------- | ------------------- |
+| `pnpm tauri dev`                | 启动桌面开发环境    |
+| `pnpm tauri build --no-bundle`  | 构建 release 产物   |
+| `pnpm type`                     | TypeScript 类型检查 |
+| `pnpm lint`                     | 使用 oxlint 检查    |
+| `pnpm format`                   | 使用 oxfmt 格式化   |
+
+构建产物：
+
 ```text
 app/src-tauri/target/release/app.exe
 app/src-tauri/target/release/WebView2Loader.dll
 ```
 
-鐢熸垚 Windows 瀹夎鍖咃細
+生成 Windows 安装包：
 
 ```sh
 makensis installer/DeepSeek.nsi
 ```
 
-杈撳嚭涓?`dist-installer/DeepSeekBall_0.1.0_x64-setup.exe`锛屽畨瑁呭寘浼氬悓鏃跺畨瑁呰鍙瘉鍜屼腑鑻卞弻璇殑绗笁鏂?鍝佺墝澹版槑銆?
-椤圭洰缁撴瀯锛?
+输出为 `dist-installer/DeepSeekBall_0.1.0_x64-setup.exe`，安装包会同时安装许可证和中英双语的第三方/品牌声明。
+
+项目结构：
+
 ```text
 app/
-  src/                       React 鑱婂ぉ鐣岄潰銆佹偓娴悆鍜岃缃?  src-tauri/                 Tauri/Rust 绐楀彛銆佹墭鐩樺拰瀹夎閰嶇疆
-installer/DeepSeek.nsi        Windows 瀹夎鍖呰剼鏈?LICENSE                       椤圭洰 MIT 璁稿彲璇?THIRD_PARTY_NOTICES.md        涓婃父璁稿彲澹版槑锛堣嫳鏂囷級
-THIRD_PARTY_NOTICES.zh-CN.md  涓婃父璁稿彲澹版槑锛堜腑鏂囷級
-TRADEMARKS.md                 闈炲畼鏂瑰０鏄庝笌鍝佺墝绱犳潗璇存槑锛堣嫳鏂囷級
-TRADEMARKS.zh-CN.md           闈炲畼鏂瑰０鏄庝笌鍝佺墝绱犳潗璇存槑锛堜腑鏂囷級
+  src/                       React 聊天界面、悬浮球和设置
+  src-tauri/                 Tauri/Rust 窗口、托盘和安装配置
+installer/DeepSeek.nsi        Windows 安装包脚本
+LICENSE                       项目 MIT 许可证
+THIRD_PARTY_NOTICES.md        上游许可声明（英文）
+THIRD_PARTY_NOTICES.zh-CN.md  上游许可声明（中文）
+TRADEMARKS.md                 非官方声明与品牌素材说明（英文）
+TRADEMARKS.zh-CN.md           非官方声明与品牌素材说明（中文）
 ```
 
-## 宸茬煡闄愬埗
+## 已知限制
 
-- 浠呮敮鎸?Windows銆?- 鏀惧ぇ绐楀彛鍜岃竟鐣屾敹鏉熺洰鍓嶄互涓绘樉绀哄櫒涓哄噯銆?- 杩蜂綘闈㈡澘鍥哄畾涓?400脳640銆?- 涓嶅寘鍚畼鏂瑰鎴风鐨勮处鍙蜂綋绯汇€佸畼鏂瑰悓姝ユ垨鍒嗕韩閾炬帴銆?- 鍝佺墝鐩稿叧鐣岄潰鐢ㄤ簬璇嗗埆鎵€鍏煎鐨勬湇鍔★紝涓嶄唬琛ㄥ畼鏂瑰疄鐜般€?
-## 璁稿彲璇?
-婧愪唬鐮佸拰椤圭洰鏂囨。浣跨敤 [MIT](LICENSE) 璁稿彲璇併€備笂娓?chat-demo 鍜?`@deepseek-ai/dsh-client-ui-primitives` 鍚屾牱浣跨敤 MIT 璁稿彲璇侊紝瀹屾暣鐗堟潈涓庤鍙枃鏈 [THIRD_PARTY_NOTICES.zh-CN.md](THIRD_PARTY_NOTICES.zh-CN.md)銆?
-DeepSeek 鍚嶇О銆乴ogo銆佹枃瀛楁爣蹇楀強鐩稿叧鍝佺墝绱犳潗涓嶅睘浜?MIT 璁稿彲鑼冨洿锛岃瑙?[TRADEMARKS.zh-CN.md](TRADEMARKS.zh-CN.md)銆傚晢涓氬垎鍙戞垨澶ц妯″叕寮€鍙戝竷鍓嶏紝璇疯嚜琛岀‘璁ゅ搧鐗屼娇鐢ㄦ潈闄愶紝鎴栨浛鎹㈠搧鐗岀礌鏉愩€?
-## 鑷磋阿
+- 仅支持 Windows。
+- 放大窗口和边界收束目前以主显示器为准。
+- 迷你面板固定为 400×640。
+- 不包含官方客户端的账号体系、官方同步或分享链接。
+- 品牌相关界面用于识别所兼容的服务，不代表官方实现。
 
-- [DeepSeek chat-demo](https://github.com/deepseek-ai/chat-demo)锛氳亰澶╃晫闈㈠拰鏍峰紡鍩虹銆?- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)锛氶儴鍒嗗畼鏂?UI 鍥炬爣涓庡瓧鏍囧嚑浣曘€?- [Tauri](https://tauri.app/)锛氭闈㈢獥鍙ｅ拰鎵撳寘銆?- React銆乺spack銆並aTeX銆丮ermaid 鍙婂叾浠栦笂娓镐緷璧栫殑浣滆€呫€?
+## 许可证
+
+源代码和项目文档使用 [MIT](LICENSE) 许可证。上游 chat-demo 和 `@deepseek-ai/dsh-client-ui-primitives` 同样使用 MIT 许可证，完整版权与许可文本见 [THIRD_PARTY_NOTICES.zh-CN.md](THIRD_PARTY_NOTICES.zh-CN.md)。
+
+DeepSeek 名称、logo、文字标志及相关品牌素材不属于 MIT 许可范围，详见 [TRADEMARKS.zh-CN.md](TRADEMARKS.zh-CN.md)。商业分发或大规模公开发布前，请自行确认品牌使用权限，或替换品牌素材。
+
+## 致谢
+
+- [DeepSeek chat-demo](https://github.com/deepseek-ai/chat-demo)：聊天界面和样式基础。
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)：部分官方 UI 图标与字标几何。
+- [Tauri](https://tauri.app/)：桌面窗口和打包。
+- React、rspack、KaTeX、Mermaid 及其他上游依赖的作者。

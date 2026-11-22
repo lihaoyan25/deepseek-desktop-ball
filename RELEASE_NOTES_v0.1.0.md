@@ -1,6 +1,6 @@
-﻿# DeepSeekBall v0.1.0
+# DeepSeekBall v0.1.0
 
-English | [绠€浣撲腑鏂嘳(#绠€浣撲腑鏂?
+English | [简体中文](#简体中文)
 
 An unofficial Windows desktop floating client for DeepSeek, built with Tauri. This release includes the complete local chat experience, conversation search, batch conversation management, and the turn navigation rail.
 
@@ -43,25 +43,43 @@ This is an unofficial project. It is not affiliated with, endorsed by, or sponso
 
 ---
 
-## 绠€浣撲腑鏂?
-涓€涓潪瀹樻柟鐨?Windows DeepSeek 妗岄潰鎮诞瀹㈡埛绔紝浣跨敤 Tauri 鏋勫缓銆傛湰鐗堟湰鍖呭惈瀹屾暣鐨勬湰鍦拌亰澶╀綋楠屻€佷細璇濇悳绱€佹壒閲忎細璇濈鐞嗕互鍙婅疆娆″鑸€?
-## 涓嬭浇
+## 简体中文
+
+一个非官方的 Windows DeepSeek 桌面悬浮客户端，使用 Tauri 构建。本版本包含完整的本地聊天体验、会话搜索、批量会话管理以及轮次导航。
+
+## 下载
 
 - [DeepSeekBall_0.1.0_x64-setup.exe](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/download/v0.1.0/DeepSeekBall_0.1.0_x64-setup.exe)
 - [SHA256SUMS.txt](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/download/v0.1.0/SHA256SUMS.txt)
 
-瀹夎鍖?SHA256锛?
+安装包 SHA256：
+
 ```text
 A17C1AD3B651EC6CFBB0C709442D847E3E27F2C73101C89B852F036DBDDBF12E
 ```
 
-鏃犻渶鍛戒护琛屻€丯ode.js 鎴?Rust銆備笅杞藉畨瑁呭寘鍚庣洿鎺ヨ繍琛屽嵆鍙€傜郴缁熻姹備负 Windows 10/11 x64锛屽苟闇€瑕?WebView2 Runtime銆?
-## 鏈増鍐呭
+无需命令行、Node.js 或 Rust。下载安装包后直接运行即可。系统要求为 Windows 10/11 x64，并需要 WebView2 Runtime。
 
-- 鏀寔鍦ㄤ晶鏍忔垨鎶樺彔鑳跺泭涓墦寮€浼氳瘽鎼滅储锛屽悓鏃跺尮閰嶆爣棰樺拰瀹屾暣娑堟伅鍐呭銆?- 鏀寔鎵归噺閫夋嫨浼氳瘽锛屽苟鎵ц缃《銆佸彇娑堢疆椤跺拰鎵归噺鍒犻櫎銆?- 缃《浼氳瘽鐙珛鍒嗙粍锛屽苟鎸佷箙鍖?`pinnedAt` 鐘舵€併€?- 瀵硅瘽椤靛彸渚у鍔犺疆娆″鑸細鏅€?mark銆佹寜鏃堕棿琛板噺銆佹偓鍋滈瑙堝拰鐐瑰嚮璺宠浆銆?- 渚ф爮鏀惰捣/灞曞紑銆佺Щ鍔ㄧ鎶藉眽鍜屾寜閽?hover 浣跨敤鏇存煍鍜岀殑杩囨浮鍔ㄧ敾銆?- 渚ф爮鎼滅储鍜屾壒閲忕鐞嗙殑鍏ュ彛銆佸竷灞€涓庡畼鏂规闈㈢瀵归綈銆?- 淇涓夌偣鑿滃崟鍦ㄨЕ鍙戝厓绱犲け鍘?hover 鍚庤烦鍒板乏涓婅鐨勯棶棰樸€?- 淇鏀惧ぇ妯″紡琚己鍒剁疆椤剁殑闂锛涚幇鍦ㄥ彧鏈夎糠浣犳ā寮忎繚鎸佺疆椤躲€?- 璁剧疆椤靛鍔?DeepSeek 鐢ㄩ噺涓?API KEY 绠＄悊閾炬帴銆?- 鏇存柊瀹夎鍖呫€佸弻璇枃妗ｅ拰 Release 鍏冩暟鎹€?
-## 瀹夎
+## 本版内容
 
-1. 涓嬭浇 `DeepSeekBall_0.1.0_x64-setup.exe`銆?2. 杩愯瀹夎鍖呭苟鎸夋彁绀哄畬鎴愬畨瑁呫€?3. 鍚姩 DeepSeekBall锛屽湪璁剧疆涓～鍐欒嚜宸辩殑 DeepSeek API Key銆?4. 瀹夎鍖呮湭绛惧悕锛學indows SmartScreen 鍙兘鎻愮ず锛涘彧鏈夊湪鏂囦欢纭疄鏉ヨ嚜鏈?Release 鏃舵墠閫夋嫨鈥滀粛瑕佽繍琛屸€濄€?
-## 璇存槑
+- 支持在侧栏或折叠胶囊中打开会话搜索，同时匹配标题和完整消息内容。
+- 支持批量选择会话，并执行置顶、取消置顶和批量删除。
+- 置顶会话独立分组，并持久化 `pinnedAt` 状态。
+- 对话页右侧增加轮次导航：普通 mark、按时间衰减、悬停预览和点击跳转。
+- 侧栏收起/展开、移动端抽屉和按钮 hover 使用更柔和的过渡动画。
+- 侧栏搜索和批量管理的入口、布局与官方桌面端对齐。
+- 修复三点菜单在触发元素失去 hover 后跳到左上角的问题。
+- 修复放大模式被强制置顶的问题；现在只有迷你模式保持置顶。
+- 设置页增加 DeepSeek 用量与 API KEY 管理链接。
+- 更新安装包、双语文档和 Release 元数据。
 
-鏈」鐩负闈炲畼鏂归」鐩紝涓?DeepSeek 鏃犻毝灞炪€佽儗涔︽垨璧炲姪鍏崇郴銆侱eepSeek 鍝佺墝绱犳潗鐨勬潈鍒╁綊鍏舵潈鍒╀汉鎵€鏈夛紝璇﹁ [TRADEMARKS.zh-CN.md](https://github.com/lihaoyan25/deepseek-desktop-ball/blob/main/TRADEMARKS.zh-CN.md)銆?
+## 安装
+
+1. 下载 `DeepSeekBall_0.1.0_x64-setup.exe`。
+2. 运行安装包并按提示完成安装。
+3. 启动 DeepSeekBall，在设置中填写自己的 DeepSeek API Key。
+4. 安装包未签名，Windows SmartScreen 可能提示；只有在文件确实来自本 Release 时才选择“仍要运行”。
+
+## 说明
+
+本项目为非官方项目，与 DeepSeek 无隶属、背书或赞助关系。DeepSeek 品牌素材的权利归其权利人所有，详见 [TRADEMARKS.zh-CN.md](https://github.com/lihaoyan25/deepseek-desktop-ball/blob/main/TRADEMARKS.zh-CN.md)。
