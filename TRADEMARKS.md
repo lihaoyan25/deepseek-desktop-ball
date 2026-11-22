@@ -1,5 +1,7 @@
 # Trademarks and Brand Assets
 
+English | [简体中文](TRADEMARKS.zh-CN.md)
+
 This is an **unofficial** project. It is not affiliated with, endorsed by,
 sponsored by, or supported by DeepSeek or any related company.
 

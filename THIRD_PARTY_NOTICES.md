@@ -1,5 +1,7 @@
 # Third-Party Notices
 
+English | [简体中文](THIRD_PARTY_NOTICES.zh-CN.md)
+
 This project contains code and/or assets derived from the following
 open-source projects. Their licenses are reproduced below.
 
