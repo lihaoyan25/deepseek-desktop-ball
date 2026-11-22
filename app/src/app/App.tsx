@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useTranslate } from '../i18n/index.js'
 import { useSettings } from '../services/settings.js'
 import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport.js'
+import type { PanelMode } from './panelMode.js'
 import {
   bindChatPersistence,
   initChat,
@@ -16,6 +19,7 @@ import { useSearchPanel } from '../components/search/searchPanelState.js'
 import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
 import { WindowControls } from '../components/session/WindowControls.js'
+import { WindowResizeHandles } from '../components/session/WindowResizeHandles.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey } from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
@@ -53,6 +57,7 @@ export const App = () => {
   )
   const activeId = useChatStore((state) => state.activeId)
   const searchEntry = useSearchPanel((state) => state.entry)
+  const [panelMode, setPanelMode] = useState<PanelMode>('mini')
 
   usePreventPageScroll(isMobile)
 
@@ -75,6 +80,30 @@ export const App = () => {
     void initChat()
     // 首次打开先在设置里输入 API Key
     ensureApiKey()
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    let unlisten: (() => void) | undefined
+    const update = (mode: unknown) => {
+      if (mode === 'mini' || mode === 'max') {
+        setPanelMode(mode)
+      }
+    }
+    void invoke<string>('panel_mode')
+      .then(update)
+      .catch(() => {})
+    void listen<string>('panel-mode', (event) => update(event.payload)).then((stop) => {
+      if (alive) {
+        unlisten = stop
+      } else {
+        stop()
+      }
+    })
+    return () => {
+      alive = false
+      unlisten?.()
+    }
   }, [])
 
   useEffect(() => {
@@ -132,7 +161,7 @@ export const App = () => {
             {!isMobile ? <CollapsedSider visible={siderCollapsed} /> : null}
             {!ready || (activeId !== null && !session) ? (
               <div className={styles.loadingView}>
-                {isMobile ? <MobileHeader /> : null}
+                {isMobile ? <MobileHeader mode={panelMode} /> : null}
                 <div className={styles.loadingState} role="status" aria-live="polite">
                   <span>
                     {(!ready ? initError : sessionLoadError)
@@ -161,14 +190,16 @@ export const App = () => {
                 session={session}
                 streaming={streaming}
                 siderCollapsed={siderCollapsed}
+                panelMode={panelMode}
               />
             ) : (
-              <Welcome />
+              <Welcome panelMode={panelMode} />
             )}
           </div>
         </main>
         <SearchPanel />
-        {!isMobile && searchEntry === null ? <WindowControls /> : null}
+        {!isMobile && searchEntry === null ? <WindowControls mode={panelMode} /> : null}
+        <WindowResizeHandles />
       </div>
       <SettingsDialog />
       <Toast />

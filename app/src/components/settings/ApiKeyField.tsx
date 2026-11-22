@@ -78,6 +78,14 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
           </div>
         )}
         {showInput && form.error ? <div className={styles.error}>{form.error}</div> : null}
+        <a
+          className={styles.apiKeyUsage}
+          href="https://platform.deepseek.com/usage"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {t('viewDeepSeekUsage')}
+        </a>
       </div>
     </div>
   )

@@ -1,8 +1,9 @@
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, State};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[cfg(target_os = "windows")]
@@ -110,12 +111,192 @@ enum PanelMode {
   Max,
 }
 
-struct PanelState(Mutex<PanelMode>);
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct PanelSize {
+  width: f64,
+  height: f64,
+  #[serde(default)]
+  x: Option<i32>,
+  #[serde(default)]
+  y: Option<i32>,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+struct PanelSizes {
+  mini: Option<PanelSize>,
+  max: Option<PanelSize>,
+}
+
+const MIN_PANEL_WIDTH: f64 = 320.0;
+const MIN_PANEL_HEIGHT: f64 = 400.0;
+const DEFAULT_MINI_WIDTH: f64 = 400.0;
+const DEFAULT_MINI_HEIGHT: f64 = 640.0;
+
+struct PanelState {
+  mode: Mutex<PanelMode>,
+  sizes: Mutex<PanelSizes>,
+  last_size_save: Mutex<Instant>,
+}
 
 impl Default for PanelState {
   fn default() -> Self {
-    Self(Mutex::new(PanelMode::Mini))
+    Self {
+      mode: Mutex::new(PanelMode::Mini),
+      sizes: Mutex::new(PanelSizes::default()),
+      last_size_save: Mutex::new(Instant::now()),
+    }
   }
+}
+
+fn panel_sizes_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+  app
+    .path()
+    .app_data_dir()
+    .ok()
+    .map(|dir| dir.join("panel-sizes.json"))
+}
+
+fn read_panel_sizes(app: &AppHandle) -> PanelSizes {
+  panel_sizes_path(app)
+    .and_then(|path| std::fs::read_to_string(path).ok())
+    .and_then(|data| serde_json::from_str(&data).ok())
+    .unwrap_or_default()
+}
+
+fn write_panel_sizes(app: &AppHandle, sizes: &PanelSizes) {
+  let Some(path) = panel_sizes_path(app) else {
+    return;
+  };
+  if let Some(parent) = path.parent() {
+    let _ = std::fs::create_dir_all(parent);
+  }
+  if let Ok(data) = serde_json::to_string(sizes) {
+    let _ = std::fs::write(path, data);
+  }
+}
+
+fn clamp_panel_size(size: PanelSize, monitor: &tauri::Monitor) -> PanelSize {
+  let scale = monitor.scale_factor();
+  let work = monitor.work_area();
+  let max_width = work.size.width as f64 / scale;
+  let max_height = work.size.height as f64 / scale;
+  PanelSize {
+    width: size
+      .width
+      .clamp(MIN_PANEL_WIDTH, max_width.max(MIN_PANEL_WIDTH)),
+    height: size
+      .height
+      .clamp(MIN_PANEL_HEIGHT, max_height.max(MIN_PANEL_HEIGHT)),
+    x: size.x,
+    y: size.y,
+  }
+}
+
+fn clamp_panel_point(monitor: &tauri::Monitor, point: BallPoint, pw: i32, ph: i32) -> BallPoint {
+  let work = monitor.work_area();
+  let min_x = work.position.x;
+  let max_x = (work.position.x + work.size.width as i32 - pw).max(min_x);
+  let min_y = work.position.y;
+  let max_y = (work.position.y + work.size.height as i32 - ph).max(min_y);
+  BallPoint {
+    x: point.x.clamp(min_x, max_x),
+    y: point.y.clamp(min_y, max_y),
+  }
+}
+
+fn default_max_panel_size(monitor: &tauri::Monitor) -> PanelSize {
+  let scale = monitor.scale_factor();
+  let work = monitor.work_area();
+  PanelSize {
+    width: (work.size.width as f64 / scale * 0.9).round(),
+    height: (work.size.height as f64 / scale * 0.9).round(),
+    x: None,
+    y: None,
+  }
+}
+
+fn saved_panel_size(state: &PanelState, mode: PanelMode) -> Option<PanelSize> {
+  let sizes = state.sizes.lock().ok()?;
+  match mode {
+    PanelMode::Mini => sizes.mini,
+    PanelMode::Max => sizes.max,
+  }
+}
+
+fn emit_panel_mode(app: &AppHandle, mode: PanelMode) {
+  let value = match mode {
+    PanelMode::Mini => "mini",
+    PanelMode::Max => "max",
+  };
+  let _ = app.emit("panel-mode", value);
+}
+
+fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
+  let state = app.state::<PanelState>();
+  let mode = match state.mode.lock() {
+    Ok(mode) => *mode,
+    Err(_) => return,
+  };
+  let mut sizes = match state.sizes.lock() {
+    Ok(sizes) => sizes,
+    Err(_) => return,
+  };
+  let current = match mode {
+    PanelMode::Mini => sizes.mini,
+    PanelMode::Max => sizes.max,
+  };
+  let mut next = size;
+  if next.x.is_none() || next.y.is_none() {
+    next.x = next.x.or(current.and_then(|size| size.x));
+    next.y = next.y.or(current.and_then(|size| size.y));
+  }
+  match mode {
+    PanelMode::Mini => sizes.mini = Some(next),
+    PanelMode::Max => sizes.max = Some(next),
+  }
+  let should_write = force
+    || state
+      .last_size_save
+      .lock()
+      .map(|mut last| {
+        if last.elapsed() < Duration::from_millis(200) {
+          false
+        } else {
+          *last = Instant::now();
+          true
+        }
+      })
+      .unwrap_or(true);
+  if should_write {
+    write_panel_sizes(app, &sizes);
+  }
+}
+
+fn remember_current_panel_size(app: &AppHandle, force: bool) {
+  let Some(panel) = app.get_webview_window("panel") else {
+    return;
+  };
+  if !panel.is_visible().unwrap_or(false) {
+    return;
+  }
+  let Ok(size) = panel.inner_size() else {
+    return;
+  };
+  let Ok(scale) = panel.scale_factor() else {
+    return;
+  };
+  let logical = size.to_logical::<f64>(scale);
+  let position = panel.outer_position().ok();
+  remember_panel_size(
+    app,
+    PanelSize {
+      width: logical.width,
+      height: logical.height,
+      x: position.map(|point| point.x),
+      y: position.map(|point| point.y),
+    },
+    force,
+  );
 }
 
 fn clamp_ball_point(monitor: &tauri::Monitor, point: BallPoint, bw: i32, bh: i32) -> BallPoint {
@@ -221,15 +402,33 @@ fn toggle(app: &AppHandle) {
   };
 
   if panel.is_visible().unwrap_or(false) {
+    remember_current_panel_size(app, true);
     hide_panel_and_restore(app);
     return;
   }
 
+  let state = app.state::<PanelState>();
+  if let Ok(mut mode) = state.mode.lock() {
+    *mode = PanelMode::Mini;
+  }
+  emit_panel_mode(app, PanelMode::Mini);
+  let saved = saved_panel_size(&state, PanelMode::Mini);
+  let saved_position = saved.and_then(|size| size.x.zip(size.y));
+  let size = clamp_panel_size(
+    saved.unwrap_or(PanelSize {
+      width: DEFAULT_MINI_WIDTH,
+      height: DEFAULT_MINI_HEIGHT,
+      x: None,
+      y: None,
+    }),
+    &monitor,
+  );
+
   let scale = monitor.scale_factor();
-  let size = monitor.size();
+  let size_px = monitor.size();
   let pos = monitor.position();
-  let right = pos.x + size.width as i32;
-  let bottom = pos.y + size.height as i32;
+  let right = pos.x + size_px.width as i32;
+  let bottom = pos.y + size_px.height as i32;
   let bw = (64.0 * scale) as i32;
   let rest = ball
     .outer_position()
@@ -241,14 +440,13 @@ fn toggle(app: &AppHandle) {
   let rest = clamp_ball_point(&monitor, rest, bw, bw);
   remember_rest(app, rest);
 
-  let pw = (400.0 * scale) as i32;
-  let ph = (640.0 * scale) as i32;
+  let pw = (size.width * scale).round() as i32;
+  let ph = (size.height * scale).round() as i32;
   let margin = (16.0 * scale) as i32;
   let ball_center_x = rest.x + bw / 2;
   let ball_center_y = rest.y + bw / 2;
-  let ball_on_left = ball_center_x < pos.x + size.width as i32 / 2;
+  let ball_on_left = ball_center_x < pos.x + size_px.width as i32 / 2;
 
-  // 面板贴在球的一侧，垂直居中对齐；空间不足时向屏幕内收回。
   let candidate_x = if ball_on_left {
     rest.x + bw + margin
   } else {
@@ -256,12 +454,18 @@ fn toggle(app: &AppHandle) {
   };
   let min_x = pos.x + margin;
   let max_x = (right - pw - margin).max(min_x);
-  let x = candidate_x.clamp(min_x, max_x);
   let min_y = pos.y + margin;
   let max_y = (bottom - ph - margin).max(min_y);
-  let y = (ball_center_y - ph / 2).clamp(min_y, max_y);
+  let (x, y) = if let Some(point) = saved_position {
+    let point = clamp_panel_point(&monitor, BallPoint { x: point.0, y: point.1 }, pw, ph);
+    (point.x, point.y)
+  } else {
+    let x = candidate_x.clamp(min_x, max_x);
+    let y = (ball_center_y - ph / 2).clamp(min_y, max_y);
+    (x, y)
+  };
 
-  let _ = panel.set_size(tauri::LogicalSize::new(400.0, 640.0));
+  let _ = panel.set_size(tauri::LogicalSize::new(size.width, size.height));
   let _ = panel.set_position(PhysicalPosition::new(x, y));
   #[cfg(target_os = "windows")]
   remove_border(&panel);
@@ -273,7 +477,6 @@ fn toggle(app: &AppHandle) {
   #[cfg(target_os = "windows")]
   set_taskbar_visible(&panel, false);
 
-  // 球收进离球最近的一侧屏幕边缘，保持当前 y；左侧镜像尾巴。
   let tuck = (32.0 * scale) as i32;
   let tuck_x = if ball_on_left { pos.x - tuck } else { right - tuck };
   let min_tuck_y = pos.y;
@@ -299,7 +502,10 @@ fn toggle_panel(app: AppHandle, state: State<'_, PanelState>) {
     .map(|panel| panel.is_visible().unwrap_or(false))
     .unwrap_or(false);
   if !panel_visible {
-    *state.0.lock().unwrap() = PanelMode::Mini;
+    if let Ok(mut mode) = state.mode.lock() {
+      *mode = PanelMode::Mini;
+    }
+    emit_panel_mode(&app, PanelMode::Mini);
   }
   toggle(&app);
 }
@@ -311,14 +517,21 @@ fn toggle_from_ball(app: AppHandle, state: State<'_, PanelState>) {
     .map(|panel| panel.is_visible().unwrap_or(false))
     .unwrap_or(false);
   if panel_visible {
+    remember_current_panel_size(&app, true);
     hide_panel_and_restore(&app);
     return;
   }
-  let mode = *state.0.lock().unwrap();
+  let mode = match state.mode.lock() {
+    Ok(mode) => *mode,
+    Err(_) => PanelMode::Mini,
+  };
   match mode {
     PanelMode::Max => maximize_panel(app, state),
     PanelMode::Mini => {
-      *state.0.lock().unwrap() = PanelMode::Mini;
+      if let Ok(mut mode) = state.mode.lock() {
+        *mode = PanelMode::Mini;
+      }
+      emit_panel_mode(&app, PanelMode::Mini);
       toggle(&app);
     }
   }
@@ -326,19 +539,45 @@ fn toggle_from_ball(app: AppHandle, state: State<'_, PanelState>) {
 
 #[tauri::command]
 fn maximize_panel(app: AppHandle, state: State<'_, PanelState>) {
-  *state.0.lock().unwrap() = PanelMode::Max;
+  remember_current_panel_size(&app, true);
+  if let Ok(mut mode) = state.mode.lock() {
+    *mode = PanelMode::Max;
+  }
+  emit_panel_mode(&app, PanelMode::Max);
   let Some(panel) = app.get_webview_window("panel") else {
     return;
   };
   let Ok(Some(monitor)) = app.primary_monitor() else {
     return;
   };
+  let scale = monitor.scale_factor();
   let work = monitor.work_area();
-  let width = ((work.size.width as f64) * 0.9).round() as u32;
-  let height = ((work.size.height as f64) * 0.9).round() as u32;
-  let x = work.position.x + ((work.size.width - width) / 2) as i32;
-  let y = work.position.y + ((work.size.height - height) / 2) as i32;
-  let _ = panel.set_size(PhysicalSize::new(width, height));
+  let saved = saved_panel_size(&state, PanelMode::Max);
+  let saved_position = saved.and_then(|size| size.x.zip(size.y));
+  let size = clamp_panel_size(
+    saved.unwrap_or_else(|| default_max_panel_size(&monitor)),
+    &monitor,
+  );
+  let width = (size.width * scale).round() as u32;
+  let height = (size.height * scale).round() as u32;
+  let (x, y) = if let Some(point) = saved_position {
+    let point = clamp_panel_point(
+      &monitor,
+      BallPoint {
+        x: point.0,
+        y: point.1,
+      },
+      width as i32,
+      height as i32,
+    );
+    (point.x, point.y)
+  } else {
+    (
+      work.position.x + ((work.size.width - width) / 2) as i32,
+      work.position.y + ((work.size.height - height) / 2) as i32,
+    )
+  };
+  let _ = panel.set_size(tauri::LogicalSize::new(size.width, size.height));
   let _ = panel.set_position(PhysicalPosition::new(x, y));
   #[cfg(target_os = "windows")]
   remove_border(&panel);
@@ -356,7 +595,11 @@ fn maximize_panel(app: AppHandle, state: State<'_, PanelState>) {
 
 #[tauri::command]
 fn restore_panel(app: AppHandle, state: State<'_, PanelState>) {
-  *state.0.lock().unwrap() = PanelMode::Mini;
+  remember_current_panel_size(&app, true);
+  if let Ok(mut mode) = state.mode.lock() {
+    *mode = PanelMode::Mini;
+  }
+  emit_panel_mode(&app, PanelMode::Mini);
   if let Some(panel) = app.get_webview_window("panel") {
     #[cfg(target_os = "windows")]
     set_taskbar_visible(&panel, false);
@@ -370,7 +613,74 @@ fn restore_panel(app: AppHandle, state: State<'_, PanelState>) {
 
 #[tauri::command]
 fn close_panel(app: AppHandle) {
+  remember_current_panel_size(&app, true);
   hide_panel_and_restore(&app);
+}
+
+#[tauri::command]
+fn panel_mode(state: State<'_, PanelState>) -> String {
+  let mode = match state.mode.lock() {
+    Ok(mode) => *mode,
+    Err(_) => PanelMode::Mini,
+  };
+  match mode {
+    PanelMode::Mini => "mini".to_string(),
+    PanelMode::Max => "max".to_string(),
+  }
+}
+
+#[tauri::command]
+fn reset_panel_size(app: AppHandle, state: State<'_, PanelState>) {
+  let Ok(Some(monitor)) = app.primary_monitor() else {
+    return;
+  };
+  let mode = match state.mode.lock() {
+    Ok(mode) => *mode,
+    Err(_) => PanelMode::Mini,
+  };
+  let max_default = default_max_panel_size(&monitor);
+  let mut sizes = match state.sizes.lock() {
+    Ok(sizes) => sizes,
+    Err(_) => return,
+  };
+  let mini_position = sizes.mini.and_then(|size| size.x.zip(size.y));
+  let max_position = sizes.max.and_then(|size| size.x.zip(size.y));
+  sizes.mini = Some(PanelSize {
+    width: DEFAULT_MINI_WIDTH,
+    height: DEFAULT_MINI_HEIGHT,
+    x: mini_position.map(|point| point.0),
+    y: mini_position.map(|point| point.1),
+  });
+  sizes.max = Some(PanelSize {
+    width: max_default.width,
+    height: max_default.height,
+    x: max_position.map(|point| point.0),
+    y: max_position.map(|point| point.1),
+  });
+  write_panel_sizes(&app, &sizes);
+  let size = match mode {
+    PanelMode::Mini => sizes.mini,
+    PanelMode::Max => sizes.max,
+  };
+  drop(sizes);
+
+  let Some(panel) = app.get_webview_window("panel") else {
+    return;
+  };
+  let Some(size) = size else {
+    return;
+  };
+  let scale = monitor.scale_factor();
+  let _ = panel.set_size(tauri::LogicalSize::new(size.width, size.height));
+  if let (Some(x), Some(y)) = (size.x, size.y) {
+    let point = clamp_panel_point(
+      &monitor,
+      BallPoint { x, y },
+      (size.width * scale).round() as i32,
+      (size.height * scale).round() as i32,
+    );
+    let _ = panel.set_position(PhysicalPosition::new(point.x, point.y));
+  }
 }
 
 #[tauri::command]
@@ -434,7 +744,9 @@ pub fn run() {
       close_panel,
       save_ball_position,
       maximize_panel,
-      restore_panel
+      restore_panel,
+      panel_mode,
+      reset_panel_size
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -452,7 +764,10 @@ pub fn run() {
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
           "toggle" => toggle(app),
-          "quit" => app.exit(0),
+          "quit" => {
+            remember_current_panel_size(app, true);
+            app.exit(0);
+          }
           _ => {}
         });
       if let Some(icon) = app.default_window_icon().cloned() {
@@ -468,38 +783,92 @@ pub fn run() {
           make_frameless(&panel);
           remove_border(&panel);
         }
-        let _ = panel.set_size(tauri::LogicalSize::new(400.0, 640.0));
+
+        let loaded_sizes = read_panel_sizes(app.handle());
+        if let Ok(mut sizes) = app.state::<PanelState>().sizes.lock() {
+          *sizes = loaded_sizes;
+        }
+        let initial = app
+          .state::<PanelState>()
+          .sizes
+          .lock()
+          .ok()
+          .and_then(|sizes| sizes.mini)
+          .unwrap_or(PanelSize {
+            width: DEFAULT_MINI_WIDTH,
+            height: DEFAULT_MINI_HEIGHT,
+            x: None,
+            y: None,
+          });
+        let _ = panel.set_size(tauri::LogicalSize::new(initial.width, initial.height));
         let _ = panel.set_always_on_top(true);
 
-        // 拖动放大/迷你窗口时始终保留在屏幕工作区内，避免标题栏和按钮被拖出屏幕。
         let app_handle = app.handle().clone();
         panel.on_window_event(move |event| {
-          if let tauri::WindowEvent::Moved(position) = event {
-            let Some(window) = app_handle.get_webview_window("panel") else {
-              return;
-            };
-            if !window.is_visible().unwrap_or(false) {
-              return;
+          match event {
+            tauri::WindowEvent::Moved(position) => {
+              let Some(window) = app_handle.get_webview_window("panel") else {
+                return;
+              };
+              if !window.is_visible().unwrap_or(false) {
+                return;
+              }
+              if window.is_minimized().unwrap_or(false) {
+                return;
+              }
+              let Ok(Some(monitor)) = app_handle.primary_monitor() else {
+                return;
+              };
+              let Ok(size) = window.outer_size() else {
+                return;
+              };
+              let work = monitor.work_area();
+              let min_x = work.position.x;
+              let max_x = (work.position.x + work.size.width as i32 - size.width as i32).max(min_x);
+              let min_y = work.position.y;
+              let max_y = (work.position.y + work.size.height as i32 - size.height as i32).max(min_y);
+              let x = position.x.clamp(min_x, max_x);
+              let y = position.y.clamp(min_y, max_y);
+              if x != position.x || y != position.y {
+                let _ = window.set_position(PhysicalPosition::new(x, y));
+              }
+              remember_current_panel_size(&app_handle, false);
             }
-            if window.is_minimized().unwrap_or(false) {
-              return;
+            tauri::WindowEvent::Resized(size) => {
+              let Some(window) = app_handle.get_webview_window("panel") else {
+                return;
+              };
+              if !window.is_visible().unwrap_or(false) {
+                return;
+              }
+              if window.is_minimized().unwrap_or(false) {
+                return;
+              }
+              let Ok(scale) = window.scale_factor() else {
+                return;
+              };
+              let Ok(Some(monitor)) = app_handle.primary_monitor() else {
+                return;
+              };
+              let logical = size.to_logical::<f64>(scale);
+              let clamped = clamp_panel_size(
+                PanelSize {
+                  width: logical.width,
+                  height: logical.height,
+                  x: None,
+                  y: None,
+                },
+                &monitor,
+              );
+              if (clamped.width - logical.width).abs() > 0.5
+                || (clamped.height - logical.height).abs() > 0.5
+              {
+                let _ = window.set_size(tauri::LogicalSize::new(clamped.width, clamped.height));
+                return;
+              }
+              remember_panel_size(&app_handle, clamped, false);
             }
-            let Ok(Some(monitor)) = app_handle.primary_monitor() else {
-              return;
-            };
-            let Ok(size) = window.outer_size() else {
-              return;
-            };
-            let work = monitor.work_area();
-            let min_x = work.position.x;
-            let max_x = (work.position.x + work.size.width as i32 - size.width as i32).max(min_x);
-            let min_y = work.position.y;
-            let max_y = (work.position.y + work.size.height as i32 - size.height as i32).max(min_y);
-            let x = position.x.clamp(min_x, max_x);
-            let y = position.y.clamp(min_y, max_y);
-            if x != position.x || y != position.y {
-              let _ = window.set_position(PhysicalPosition::new(x, y));
-            }
+            _ => {}
           }
         });
       }

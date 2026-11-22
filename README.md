@@ -23,12 +23,15 @@ The installer is unsigned. If Windows SmartScreen appears, choose **Run anyway**
 - Click the floating ball: restore the last mini or maximized mode.
 - Drag the floating ball: move it; near a screen edge it tucks into a tail.
 - Mini mode, top-right: new chat, maximize, hide.
-- Maximized mode, top-right: restore mini mode, hide. The window can be dragged and stays inside the primary monitor work area.
+- Maximized mode, top-right: restore mini mode, hide. Both modes can be dragged and resized.
+- Drag a window edge or corner to resize. Double-click the title bar to switch between mini and maximized. Size and position are remembered per mode.
+- Settings → General → Window size → Reset size restores the default window size.
 
 ## Features
 
 - Floating ball with drag, edge tucking, and single-instance behavior.
-- Compact 400脳640 mini panel, plus a normal maximized window that is not forced on top.
+- Freely resizable mini and maximized windows (minimum 320×400), with per-mode size and position remembered.
+- Compact layout for small windows: the welcome text, messages, input field, and controls scale down together.
 - Markdown, syntax highlighting, KaTeX math, thinking traces, deep thinking, smart search, and source citations.
 - Conversation search in the sidebar, full-history message search, pinned sessions, and batch pin/delete.
 - Turn navigation rail with prompt/reply previews and click-to-jump navigation.
@@ -38,7 +41,7 @@ The installer is unsigned. If Windows SmartScreen appears, choose **Run anyway**
 
 ## Data and storage
 
-Your API key and settings are stored in local application data. Conversations and attachments are stored in local browser storage. This project does not provide a backend service or embed the official DeepSeek website. Sending messages, uploading attachments, or using speech features sends the relevant content to the configured API service. This project collects no telemetry.
+Your API key and settings are stored in local application data. Window geometry is stored in `panel-sizes.json` there. Conversations and attachments are stored in local browser storage. This project does not provide a backend service or embed the official DeepSeek website. Sending messages, uploading attachments, or using speech features sends the relevant content to the configured API service. This project collects no telemetry.
 
 Do not commit API keys, `.env` files, local application data, or logs to Git.
 
@@ -94,8 +97,7 @@ TRADEMARKS.zh-CN.md           Unofficial notice and brand-asset policy (Chinese)
 ## Known limitations
 
 - Windows only.
-- Maximized-window placement and edge clamping currently use the primary monitor.
-- The mini panel is fixed at 400脳640.
+- Window size and position are restored on the primary monitor; off-screen positions are clamped back into the work area.
 - The application does not include the official account system, official sync, or share links.
 - Branded UI is used only to identify the compatible service and does not imply an official implementation.
 

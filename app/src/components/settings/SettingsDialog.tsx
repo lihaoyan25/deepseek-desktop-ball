@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { useRef, useState, type ReactNode } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import {
   IconDarkOutline16,
   IconDataOutline16,
@@ -100,6 +101,7 @@ const SettingsContent = () => {
               <LocaleSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+              <WindowSizeSetting />
             </>
           ) : (
             <>
@@ -121,16 +123,6 @@ const SettingsContent = () => {
                   </Button>
                 }
               />
-              <div className={styles.usageLinkRow}>
-                <a
-                  className={styles.usageLink}
-                  href="https://platform.deepseek.com/usage"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t('viewDeepSeekUsage')}
-                </a>
-              </div>
               {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
             </>
           )}
@@ -215,8 +207,33 @@ const useHistoryDelete = () => {
   }
 }
 
-const LocationSetting = () => {
+/** 窗口尺寸恢复默认；位置保持不变。 */
+const WindowSizeSetting = () => {
   const t = useTranslate()
+  return (
+    <SettingCell
+      label={t('windowSize')}
+      description={t('windowSizeDescription')}
+      status={null}
+      action={
+        <Button
+          variant="outlined"
+          size="m"
+          className={styles.cellButton}
+          onClick={() => {
+            void invoke('reset_panel_size')
+              .then(() => showToast(t('windowSizeReset')))
+              .catch(() => showToast(t('windowSizeResetFailed')))
+          }}
+        >
+          {t('resetWindowSize')}
+        </Button>
+      }
+    />
+  )
+}
+
+const LocationSetting = () => {  const t = useTranslate()
   const locale = useSettings((state) => state.locale)
   const location = useSettings((state) => state.location)
   const province =

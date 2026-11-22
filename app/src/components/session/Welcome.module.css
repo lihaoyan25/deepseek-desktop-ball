@@ -11,6 +11,7 @@
   right: 0;
   height: 40px;
   z-index: 1;
+  user-select: none;
 }
 
 .welcome {
@@ -74,5 +75,25 @@
   .greeting {
     flex-shrink: 0;
     margin: auto 0;
+  }
+}
+
+/* 小窗口：欢迎语、鲸鱼和输入区一起收紧，避免换行和挤压。 */
+@media (max-width: 380px), (max-width: 700px) and (max-height: 560px) {
+  .welcome {
+    padding: 0 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .greeting {
+    gap: 6px;
+    margin-top: auto;
+    margin-bottom: auto;
+    padding-bottom: 14px;
+    font-size: 17px;
+    line-height: 24px;
+  }
+
+  .whale {
+    width: 26px;
   }
 }
