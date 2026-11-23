@@ -7,6 +7,18 @@
   background-color: var(--dsw-alias-bg-base);
 }
 
+:global(body.window-animating) .frame {
+  contain: layout paint;
+  pointer-events: none;
+}
+
+:global(body.window-animating) .frame *,
+:global(body.window-animating) .frame *::before,
+:global(body.window-animating) .frame *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
 .main {
   position: relative;
   display: flex;

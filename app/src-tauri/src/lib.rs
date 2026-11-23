@@ -1,5 +1,6 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::thread;
 use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
@@ -169,6 +170,8 @@ struct PanelState {
   last_size_save: Mutex<Instant>,
   temporary_compact: AtomicBool,
   resume_mode: Mutex<Option<PanelMode>>,
+  animating: AtomicBool,
+  animation_generation: AtomicU64,
 }
 
 impl Default for PanelState {
@@ -179,8 +182,180 @@ impl Default for PanelState {
       last_size_save: Mutex::new(Instant::now()),
       temporary_compact: AtomicBool::new(false),
       resume_mode: Mutex::new(None),
+      animating: AtomicBool::new(false),
+      animation_generation: AtomicU64::new(0),
     }
   }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct WindowRect {
+  x: i32,
+  y: i32,
+  width: u32,
+  height: u32,
+}
+
+const PANEL_ANIMATION_MS: u64 = 200;
+const PANEL_OPEN_SCALE: f64 = 0.96;
+
+fn panel_rect(window: &tauri::WebviewWindow) -> Option<WindowRect> {
+  let position = window.outer_position().ok()?;
+  let size = window.outer_size().ok()?;
+  Some(WindowRect {
+    x: position.x,
+    y: position.y,
+    width: size.width,
+    height: size.height,
+  })
+}
+
+fn set_panel_rect(window: &tauri::WebviewWindow, rect: WindowRect) {
+  #[cfg(target_os = "windows")]
+  {
+    use windows::Win32::UI::WindowsAndMessaging::{
+      SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER,
+    };
+    if let Ok(hwnd) = window.hwnd() {
+      unsafe {
+        let _ = SetWindowPos(
+          hwnd,
+          None,
+          rect.x,
+          rect.y,
+          rect.width as i32,
+          rect.height as i32,
+          SWP_NOACTIVATE | SWP_NOZORDER,
+        );
+      }
+      return;
+    }
+  }
+  let _ = window.set_size(tauri::PhysicalSize::new(rect.width, rect.height));
+  let _ = window.set_position(PhysicalPosition::new(rect.x, rect.y));
+}
+
+fn scaled_rect(rect: WindowRect, factor: f64) -> WindowRect {
+  let width = (rect.width as f64 * factor).round().max(1.0) as u32;
+  let height = (rect.height as f64 * factor).round().max(1.0) as u32;
+  WindowRect {
+    x: rect.x + ((rect.width - width) / 2) as i32,
+    y: rect.y + ((rect.height - height) / 2) as i32,
+    width,
+    height,
+  }
+}
+
+fn lerp_rect(start: WindowRect, end: WindowRect, t: f64) -> WindowRect {
+  let value = |a: i32, b: i32| (a as f64 + (b - a) as f64 * t).round() as i32;
+  WindowRect {
+    x: value(start.x, end.x),
+    y: value(start.y, end.y),
+    width: value(start.width as i32, end.width as i32).max(1) as u32,
+    height: value(start.height as i32, end.height as i32).max(1) as u32,
+  }
+}
+
+fn bezier(a: f64, b: f64, t: f64) -> f64 {
+  let u = 1.0 - t;
+  3.0 * u * u * t * a + 3.0 * u * t * t * b + t * t * t
+}
+
+/** 与会话搜索相同的 cubic-bezier(0.2, 0, 0, 1)。 */
+fn panel_ease(t: f64) -> f64 {
+  let t = t.clamp(0.0, 1.0);
+  let mut low = 0.0;
+  let mut high = 1.0;
+  for _ in 0..10 {
+    let mid = (low + high) / 2.0;
+    if bezier(0.2, 0.0, mid) < t {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  bezier(0.0, 1.0, (low + high) / 2.0)
+}
+
+fn set_panel_animation_class(app: &AppHandle, active: bool) {
+  let Some(panel) = app.get_webview_window("panel") else {
+    return;
+  };
+  let script = if active {
+    "document.body.classList.add('window-animating')"
+  } else {
+    "document.body.classList.remove('window-animating')"
+  };
+  let _ = panel.eval(script);
+}
+
+fn begin_panel_animation(app: &AppHandle) -> u64 {
+  let state = app.state::<PanelState>();
+  set_panel_animation_class(app, true);
+  state.animating.store(true, Ordering::Relaxed);
+  state.animation_generation.fetch_add(1, Ordering::Relaxed) + 1
+}
+
+fn finish_panel_animation(app: &AppHandle, generation: u64) {
+  let state = app.state::<PanelState>();
+  if state.animation_generation.load(Ordering::Relaxed) == generation {
+    state.animating.store(false, Ordering::Relaxed);
+    set_panel_animation_class(app, false);
+  }
+}
+
+fn spawn_panel_animation(
+  app: AppHandle,
+  panel: tauri::WebviewWindow,
+  start: WindowRect,
+  target: WindowRect,
+  generation: u64,
+) {
+  thread::spawn(move || {
+    let began = Instant::now();
+    let duration = Duration::from_millis(PANEL_ANIMATION_MS);
+    #[cfg(target_os = "windows")]
+    use windows::Win32::Graphics::Dwm::DwmFlush;
+
+    loop {
+      if !panel.is_visible().unwrap_or(false) {
+        finish_panel_animation(&app, generation);
+        return;
+      }
+      let state = app.state::<PanelState>();
+      if state.animation_generation.load(Ordering::Relaxed) != generation {
+        return;
+      }
+      let frame_started = Instant::now();
+      let t = (frame_started.duration_since(began).as_secs_f64() / duration.as_secs_f64()).min(1.0);
+      set_panel_rect(&panel, lerp_rect(start, target, panel_ease(t)));
+      if t >= 1.0 {
+        break;
+      }
+      #[cfg(target_os = "windows")]
+      {
+        // Let DWM present this frame before scheduling the next one.
+        let _ = unsafe { DwmFlush() };
+      }
+      #[cfg(not(target_os = "windows"))]
+      {
+        thread::sleep(Duration::from_millis(16));
+      }
+    }
+    set_panel_rect(&panel, target);
+    finish_panel_animation(&app, generation);
+  });
+}
+
+fn animate_panel_open(
+  app: &AppHandle,
+  panel: &tauri::WebviewWindow,
+  target: WindowRect,
+) -> u64 {
+  let start = scaled_rect(target, PANEL_OPEN_SCALE);
+  let generation = begin_panel_animation(app);
+  set_panel_rect(panel, start);
+  generation
 }
 
 /** 划词紧凑窗口只借用当前主窗口，不覆盖用户原有的尺寸、位置和模式。 */
@@ -293,7 +468,9 @@ fn emit_panel_mode(app: &AppHandle, mode: PanelMode) {
 
 fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
   let state = app.state::<PanelState>();
-  if state.temporary_compact.load(Ordering::Relaxed) {
+  if state.temporary_compact.load(Ordering::Relaxed)
+    || state.animating.load(Ordering::Relaxed)
+  {
     return;
   }
   let mode = match state.mode.lock() {
@@ -336,10 +513,9 @@ fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
 }
 
 fn remember_current_panel_size(app: &AppHandle, force: bool) {
-  if app
-    .state::<PanelState>()
-    .temporary_compact
-    .load(Ordering::Relaxed)
+  let state = app.state::<PanelState>();
+  if state.temporary_compact.load(Ordering::Relaxed)
+    || state.animating.load(Ordering::Relaxed)
   {
     return;
   }
@@ -445,8 +621,45 @@ fn restore_ball(app: &AppHandle, ball: &tauri::WebviewWindow) {
   let _ = ball.set_position(PhysicalPosition::new(point.x, point.y));
   let _ = ball.set_always_on_top(true);
   let _ = ball.show();
-  let _ = ball.eval("document.body.classList.remove('tucked','tucked-left','tucked-right')");
+  let _ = ball.eval(
+    "document.body.classList.remove('tucked','tucked-left','tucked-right','ball-leaving')",
+  );
   remember_rest(app, point);
+}
+
+fn show_tucked_ball(app: &AppHandle, ball: &tauri::WebviewWindow) {
+  let Ok(Some(monitor)) = app.primary_monitor() else {
+    return;
+  };
+  let scale = monitor.scale_factor();
+  let bw = (64.0 * scale) as i32;
+  let work = monitor.work_area();
+  let rest = current_rest(app)
+    .map(|point| clamp_ball_point(&monitor, point, bw, bw))
+    .unwrap_or_else(|| default_ball_point(&monitor, bw));
+  let ball_on_left = rest.x + bw / 2 < work.position.x + work.size.width as i32 / 2;
+  let tuck = (32.0 * scale) as i32;
+  let tuck_x = if ball_on_left {
+    work.position.x - tuck
+  } else {
+    work.position.x + work.size.width as i32 - tuck
+  };
+  let tuck_y = (rest.y + bw / 2 - tuck).clamp(
+    work.position.y,
+    (work.position.y + work.size.height as i32 - bw).max(work.position.y),
+  );
+  let _ = ball.set_size(tauri::LogicalSize::new(64.0, 64.0));
+  let _ = ball.set_position(PhysicalPosition::new(tuck_x, tuck_y));
+  let _ = ball.set_always_on_top(true);
+  let _ = ball.show();
+  let side_class = if ball_on_left {
+    "tucked-left"
+  } else {
+    "tucked-right"
+  };
+  let _ = ball.eval(format!(
+    "document.body.classList.remove('tucked','tucked-left','tucked-right','ball-leaving'); document.body.classList.add('{side_class}')"
+  ));
 }
 
 fn hide_panel_and_restore(app: &AppHandle) {
@@ -536,8 +749,14 @@ fn toggle(app: &AppHandle) {
     (x, y)
   };
 
-  let _ = panel.set_size(tauri::LogicalSize::new(size.width, size.height));
-  let _ = panel.set_position(PhysicalPosition::new(x, y));
+  let target = WindowRect {
+    x,
+    y,
+    width: pw as u32,
+    height: ph as u32,
+  };
+  let start = scaled_rect(target, PANEL_OPEN_SCALE);
+  let generation = animate_panel_open(app, &panel, target);
   #[cfg(target_os = "windows")]
   remove_border(&panel);
   #[cfg(target_os = "windows")]
@@ -547,9 +766,9 @@ fn toggle(app: &AppHandle) {
   let _ = panel.set_focus();
   #[cfg(target_os = "windows")]
   set_taskbar_visible(&panel, false);
+  spawn_panel_animation(app.clone(), panel.clone(), start, target, generation);
 
-  let tuck = (32.0 * scale) as i32;
-  let tuck_x = if ball_on_left { pos.x - tuck } else { right - tuck };
+  let tuck = (32.0 * scale) as i32;  let tuck_x = if ball_on_left { pos.x - tuck } else { right - tuck };
   let min_tuck_y = pos.y;
   let max_tuck_y = (bottom - bw).max(min_tuck_y);
   let tuck_y = (ball_center_y - tuck).clamp(min_tuck_y, max_tuck_y);
@@ -648,8 +867,20 @@ fn maximize_panel(app: AppHandle, state: State<'_, PanelState>) {
       work.position.y + ((work.size.height - height) / 2) as i32,
     )
   };
-  let _ = panel.set_size(tauri::LogicalSize::new(size.width, size.height));
-  let _ = panel.set_position(PhysicalPosition::new(x, y));
+  let target = WindowRect {
+    x,
+    y,
+    width,
+    height,
+  };
+  let generation = begin_panel_animation(&app);
+  let start = if panel.is_visible().unwrap_or(false) {
+    panel_rect(&panel).unwrap_or(target)
+  } else {
+    let start = scaled_rect(target, PANEL_OPEN_SCALE);
+    set_panel_rect(&panel, start);
+    start
+  };
   #[cfg(target_os = "windows")]
   remove_border(&panel);
   #[cfg(target_os = "windows")]
@@ -659,6 +890,7 @@ fn maximize_panel(app: AppHandle, state: State<'_, PanelState>) {
   let _ = panel.set_focus();
   #[cfg(target_os = "windows")]
   set_taskbar_visible(&panel, true);
+  spawn_panel_animation(app.clone(), panel.clone(), start, target, generation);
   if let Some(ball) = app.get_webview_window("ball") {
     let _ = ball.hide();
   }
@@ -671,15 +903,77 @@ fn restore_panel(app: AppHandle, state: State<'_, PanelState>) {
     *mode = PanelMode::Mini;
   }
   emit_panel_mode(&app, PanelMode::Mini);
-  if let Some(panel) = app.get_webview_window("panel") {
-    #[cfg(target_os = "windows")]
-    set_taskbar_visible(&panel, false);
-    let _ = panel.hide();
-  }
+  let Some(panel) = app.get_webview_window("panel") else {
+    return;
+  };
+  let Ok(Some(monitor)) = app.primary_monitor() else {
+    return;
+  };
+  let scale = monitor.scale_factor();
+  let work = monitor.work_area();
+  let saved = saved_panel_size(&state, PanelMode::Mini);
+  let saved_position = saved.and_then(|size| size.x.zip(size.y));
+  let size = clamp_panel_size(
+    saved.unwrap_or(PanelSize {
+      width: DEFAULT_MINI_WIDTH,
+      height: DEFAULT_MINI_HEIGHT,
+      x: None,
+      y: None,
+    }),
+    &monitor,
+  );
+  let width = (size.width * scale).round() as u32;
+  let height = (size.height * scale).round() as u32;
+  let (x, y) = if let Some(point) = saved_position {
+    let point = clamp_panel_point(
+      &monitor,
+      BallPoint {
+        x: point.0,
+        y: point.1,
+      },
+      width as i32,
+      height as i32,
+    );
+    (point.x, point.y)
+  } else {
+    let current = panel.outer_position().unwrap_or(PhysicalPosition::new(
+      work.position.x,
+      work.position.y,
+    ));
+    let x = current
+      .x
+      .clamp(work.position.x, (work.position.x + work.size.width as i32 - width as i32).max(work.position.x));
+    let y = current
+      .y
+      .clamp(work.position.y, (work.position.y + work.size.height as i32 - height as i32).max(work.position.y));
+    (x, y)
+  };
+  let target = WindowRect {
+    x,
+    y,
+    width,
+    height,
+  };
+  let generation = begin_panel_animation(&app);
+  let start = panel_rect(&panel).unwrap_or(target);
+  #[cfg(target_os = "windows")]
+  set_taskbar_visible(&panel, false);
+  let _ = panel.set_always_on_top(true);
+  let _ = panel.show();
+  let _ = panel.set_focus();
+  spawn_panel_animation(app.clone(), panel.clone(), start, target, generation);
+
   if let Some(ball) = app.get_webview_window("ball") {
-    restore_ball(&app, &ball);
+    let app_handle = app.clone();
+    thread::spawn(move || {
+      thread::sleep(Duration::from_millis(PANEL_ANIMATION_MS + 50));
+      if let Some(panel) = app_handle.get_webview_window("panel") {
+        if panel.is_visible().unwrap_or(false) {
+          show_tucked_ball(&app_handle, &ball);
+        }
+      }
+    });
   }
-  toggle(&app);
 }
 
 #[tauri::command]
@@ -921,6 +1215,13 @@ pub fn run() {
         panel.on_window_event(move |event| {
           match event {
             tauri::WindowEvent::Moved(position) => {
+              if app_handle
+                .state::<PanelState>()
+                .animating
+                .load(Ordering::Relaxed)
+              {
+                return;
+              }
               let Some(window) = app_handle.get_webview_window("panel") else {
                 return;
               };
@@ -949,6 +1250,13 @@ pub fn run() {
               remember_current_panel_size(&app_handle, false);
             }
             tauri::WindowEvent::Resized(size) => {
+              if app_handle
+                .state::<PanelState>()
+                .animating
+                .load(Ordering::Relaxed)
+              {
+                return;
+              }
               let Some(window) = app_handle.get_webview_window("panel") else {
                 return;
               };

@@ -115,7 +115,13 @@ const Ball = () => {
           return
         }
         clearFinishTimer()
-        void invoke('toggle_from_ball')
+        document.body.classList.add('ball-leaving')
+        window.setTimeout(() => {
+          void invoke('toggle_from_ball')
+        }, 70)
+        window.setTimeout(() => {
+          document.body.classList.remove('ball-leaving')
+        }, 360)
       }}
     >
       <img className="whale" src={icon} alt="" draggable={false} />
