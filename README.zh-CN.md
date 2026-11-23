@@ -6,6 +6,12 @@
 
 > 本项目为非官方项目，与 DeepSeek 官方无隶属、合作或背书关系。DeepSeek 品牌素材的权利归其权利人所有，详见 [TRADEMARKS.zh-CN.md](TRADEMARKS.zh-CN.md)。
 
+## 演示
+
+[![观看 50 秒演示](demo-preview/deepseek-demo-final-poster.png)](https://github.com/lihaoyan25/deepseek-desktop-ball/raw/main/demo-preview/deepseek-demo-final-optimized.mp4)
+
+如果点击海报没有打开播放器，可[直接打开 MP4](https://github.com/lihaoyan25/deepseek-desktop-ball/raw/main/demo-preview/deepseek-demo-final-optimized.mp4)。
+
 ## 下载
 
 前往 [Releases](https://github.com/lihaoyan25/deepseek-desktop-ball/releases/latest) 下载最新安装包：
@@ -87,6 +93,7 @@ app/
   src/                       React 聊天界面、悬浮球和设置
   src-tauri/                 Tauri/Rust 窗口、托盘和安装配置
 installer/DeepSeek.nsi        Windows 安装包脚本
+demo-preview/                 演示视频、海报和 README 媒体文件
 LICENSE                       项目 MIT 许可证
 THIRD_PARTY_NOTICES.md        上游许可声明（英文）
 THIRD_PARTY_NOTICES.zh-CN.md  上游许可声明（中文）
