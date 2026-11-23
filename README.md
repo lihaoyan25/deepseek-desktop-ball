@@ -8,9 +8,9 @@ An unofficial Windows desktop floating client for DeepSeek, built with Tauri. Th
 
 ## Demo
 
-[![Watch the 50-second demo](demo-preview/deepseek-demo-final-poster.png)](https://github.com/lihaoyan25/deepseek-desktop-ball/raw/main/demo-preview/deepseek-demo-final-optimized.mp4)
+[![Watch the 50-second demo](demo-preview/deepseek-demo-final-poster.png)](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4)
 
-[Open the MP4 directly](https://github.com/lihaoyan25/deepseek-desktop-ball/raw/main/demo-preview/deepseek-demo-final-optimized.mp4) if the poster does not open the player.
+[Open the MP4 directly](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4) if the poster does not open the player.
 
 ## Download
 

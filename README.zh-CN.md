@@ -8,9 +8,9 @@
 
 ## 演示
 
-[![观看 50 秒演示](demo-preview/deepseek-demo-final-poster.png)](https://github.com/lihaoyan25/deepseek-desktop-ball/raw/main/demo-preview/deepseek-demo-final-optimized.mp4)
+[![观看 50 秒演示](demo-preview/deepseek-demo-final-poster.png)](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4)
 
-如果点击海报没有打开播放器，可[直接打开 MP4](https://github.com/lihaoyan25/deepseek-desktop-ball/raw/main/demo-preview/deepseek-demo-final-optimized.mp4)。
+如果点击海报没有打开播放器，可[直接打开 MP4](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4)。
 
 ## 下载
 
