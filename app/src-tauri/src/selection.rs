@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
@@ -418,8 +418,6 @@ pub fn start(app: AppHandle) {
     let mut moved = false;
     let mut start = POINT::default();
     let mut target = HWND::default();
-    let mut last_click: Option<Instant> = None;
-    let mut last_click_point = POINT::default();
 
     loop {
       thread::sleep(Duration::from_millis(22));
@@ -470,13 +468,8 @@ pub fn start(app: AppHandle) {
       if down && !pressed {
         down = false;
         let in_toolbar = state.visible() && point_in_toolbar(&app, point);
-        let is_double_click = last_click
-          .map(|last| last.elapsed() < Duration::from_millis(420))
-          .unwrap_or(false)
-          && (point.x - last_click_point.x).abs() < 8
-          && (point.y - last_click_point.y).abs() < 8;
 
-        if !in_toolbar && !ignored_window(target) && (moved || is_double_click) {
+        if !in_toolbar && !ignored_window(target) && moved {
           let uia = selected_text_from_uia();
           let fallback = uia.is_none();
           let text = match uia {
@@ -491,12 +484,6 @@ pub fn start(app: AppHandle) {
           } else if let Ok(mut stored) = state.text.lock() {
             *stored = None;
           }
-        }
-        if !moved {
-          last_click = Some(Instant::now());
-          last_click_point = point;
-        } else {
-          last_click = None;
         }
       }
     }
