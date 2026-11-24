@@ -8,9 +8,9 @@ An unofficial Windows desktop floating client for DeepSeek, built with Tauri. Th
 
 ## Demo
 
-[![Watch the 50-second demo](demo-preview/deepseek-demo-final-poster.png)](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4)
+![Demo preview (GIF)](demo-preview/deepseek-demo-final.gif)
 
-[Open the MP4 directly](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4) if the poster does not open the player.
+[Watch the full 50-second demo (MP4)](https://lihaoyan25.github.io/deepseek-desktop-ball/demo-preview/deepseek-demo-final-optimized.mp4)
 
 ## Download
 
@@ -93,7 +93,7 @@ app/
   src/                       React chat UI, floating ball, and settings
   src-tauri/                 Tauri/Rust window, tray, and installer configuration
 installer/DeepSeek.nsi        Windows installer script
-demo-preview/                 Demo video, poster, and README media
+demo-preview/                 Demo video, GIF preview, and README media
 LICENSE                       Project MIT license
 THIRD_PARTY_NOTICES.md        Upstream notices (English)
 THIRD_PARTY_NOTICES.zh-CN.md  Upstream notices (Chinese)
