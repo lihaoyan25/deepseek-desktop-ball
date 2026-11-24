@@ -1048,6 +1048,64 @@ fn reset_panel_size(app: AppHandle, state: State<'_, PanelState>) {
   }
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn start_ball_drag(app: AppHandle) {
+  use windows::Win32::Foundation::POINT;
+  use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+  use windows::Win32::UI::WindowsAndMessaging::{
+    GetCursorPos, SetWindowPos, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER,
+  };
+
+  let Some(ball) = app.get_webview_window("ball") else {
+    return;
+  };
+  let Ok(hwnd) = ball.hwnd() else {
+    return;
+  };
+  let hwnd_addr = hwnd.0 as isize;
+  let Ok(start_pos) = ball.outer_position() else {
+    return;
+  };
+
+  thread::spawn(move || {
+    let hwnd = windows::Win32::Foundation::HWND(hwnd_addr as *mut core::ffi::c_void);
+    let mut start_cursor = POINT::default();
+    if unsafe { GetCursorPos(&mut start_cursor) }.is_err() {
+      return;
+    }
+
+    // 自定义拖动：直接跟随物理光标位置移动窗口，避免 Windows 原生
+    // startDragging 在关闭“拖动时显示窗口内容”时画出的线框。
+    loop {
+      let pressed = (unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) } as u16 & 0x8000) != 0;
+      if !pressed {
+        break;
+      }
+      let mut cursor = POINT::default();
+      if unsafe { GetCursorPos(&mut cursor) }.is_err() {
+        break;
+      }
+      let x = start_pos.x + cursor.x - start_cursor.x;
+      let y = start_pos.y + cursor.y - start_cursor.y;
+      let _ = unsafe {
+        SetWindowPos(
+          hwnd,
+          None,
+          x,
+          y,
+          0,
+          0,
+          SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+        )
+      };
+      thread::sleep(Duration::from_millis(8));
+    }
+
+    save_ball_position(app);
+  });
+}
+
 #[tauri::command]
 fn save_ball_position(app: AppHandle) {
   if let Some(panel) = app.get_webview_window("panel") {
@@ -1117,6 +1175,7 @@ pub fn run() {
       toggle_from_ball,
       close_panel,
       save_ball_position,
+      start_ball_drag,
       maximize_panel,
       restore_panel,
       panel_mode,

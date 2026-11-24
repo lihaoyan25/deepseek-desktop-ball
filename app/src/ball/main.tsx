@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import { invoke } from '@tauri-apps/api/core'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import icon from '../assets/deepseek-icon.svg'
 import tail from '../assets/deepseek-tail.svg'
 import './ball.css'
@@ -10,56 +9,15 @@ const Ball = () => {
   const drag = useRef({
     active: false,
     moved: false,
-    dragging: false,
     startX: 0,
     startY: 0,
   })
   const suppressClickUntil = useRef(0)
-  const finishTimer = useRef<number | null>(null)
-
-  const clearFinishTimer = () => {
-    if (finishTimer.current !== null) {
-      window.clearTimeout(finishTimer.current)
-      finishTimer.current = null
-    }
-  }
-
-  const finishDrag = () => {
-    if (!drag.current.dragging) {
-      return
-    }
-    drag.current.dragging = false
-    drag.current.active = false
-    void invoke('save_ball_position')
-  }
-
-  const finishDragSoon = (delay = 300) => {
-    clearFinishTimer()
-    finishTimer.current = window.setTimeout(finishDrag, delay)
-  }
 
   /** 贴边状态下显示的是尾巴，不是悬浮球；尾巴只负责点击恢复，不能拖动窗口。 */
   const isTucked = () =>
     document.body.classList.contains('tucked-left') ||
     document.body.classList.contains('tucked-right')
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined
-    void getCurrentWindow()
-      .onMoved(() => {
-        // 只保存用户拖动造成的移动；tuck/restore 不是拖动，不能覆盖 rest。
-        if (drag.current.dragging) {
-          finishDragSoon()
-        }
-      })
-      .then((stop) => {
-        unlisten = stop
-      })
-    return () => {
-      unlisten?.()
-      clearFinishTimer()
-    }
-  }, [])
 
   return (
     <button
@@ -70,11 +28,10 @@ const Ball = () => {
         if (event.button !== 0) {
           return
         }
-        clearFinishTimer()
+        event.currentTarget.setPointerCapture(event.pointerId)
         drag.current = {
           active: true,
           moved: false,
-          dragging: false,
           startX: event.screenX,
           startY: event.screenY,
         }
@@ -91,27 +48,15 @@ const Ball = () => {
           return
         }
         drag.current.moved = true
-        drag.current.dragging = true
         suppressClickUntil.current = Date.now() + 700
-        void getCurrentWindow().startDragging()
-        // startDragging 后不一定还有 pointerup；等窗口停稳后保存。
-        finishDragSoon(600)
+        // 自定义拖动：由 Rust 跟踪鼠标并直接移动窗口，绕开 Windows 的系统拖拽线框。
+        void invoke('start_ball_drag')
       }}
       onPointerUp={() => {
         drag.current.active = false
-        if (drag.current.moved) {
-          finishDragSoon(250)
-        } else {
-          drag.current.dragging = false
-        }
       }}
       onPointerCancel={() => {
         drag.current.active = false
-        if (drag.current.moved) {
-          finishDragSoon(250)
-        } else {
-          drag.current.dragging = false
-        }
       }}
       onClick={() => {
         if (drag.current.moved || Date.now() < suppressClickUntil.current) {
@@ -119,7 +64,6 @@ const Ball = () => {
           drag.current.active = false
           return
         }
-        clearFinishTimer()
         document.body.classList.add('ball-leaving')
         window.setTimeout(() => {
           void invoke('toggle_from_ball')
