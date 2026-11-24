@@ -38,6 +38,11 @@ const Ball = () => {
     finishTimer.current = window.setTimeout(finishDrag, delay)
   }
 
+  /** 贴边状态下显示的是尾巴，不是悬浮球；尾巴只负责点击恢复，不能拖动窗口。 */
+  const isTucked = () =>
+    document.body.classList.contains('tucked-left') ||
+    document.body.classList.contains('tucked-right')
+
   useEffect(() => {
     let unlisten: (() => void) | undefined
     void getCurrentWindow()
@@ -75,7 +80,7 @@ const Ball = () => {
         }
       }}
       onPointerMove={(event) => {
-        if (!drag.current.active || drag.current.moved) {
+        if (isTucked() || !drag.current.active || drag.current.moved) {
           return
         }
         const distance = Math.hypot(
