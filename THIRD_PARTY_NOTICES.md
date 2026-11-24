@@ -8,7 +8,7 @@ open-source projects. Their licenses are reproduced below.
 ## chat-demo
 
 - Source: https://github.com/deepseek-ai/chat-demo
-- Version: 0.1.1
+- Version: 0.1.3
 - License: MIT
 - Copyright: Copyright (c) 2026 DeepSeek
 

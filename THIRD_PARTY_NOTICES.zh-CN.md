@@ -7,7 +7,7 @@
 ## chat-demo
 
 - 来源：https://github.com/deepseek-ai/chat-demo
-- 版本：0.1.1
+- 版本：0.1.3
 - 许可证：MIT
 - 版权：Copyright (c) 2026 DeepSeek
 
