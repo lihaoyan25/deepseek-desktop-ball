@@ -70,6 +70,11 @@ export const App = () => {
     document.documentElement.lang = locale
   }, [locale])
 
+  useEffect(() => {
+    document.body.classList.toggle('window-full', panelMode === 'full')
+    return () => document.body.classList.remove('window-full')
+  }, [panelMode])
+
   // 文件数、存储空间达到上限时，附件上只显示「上传失败」，原因用 toast 说明
   useEffect(() => onUploadNotice(showToast), [])
   useEffect(bindChatPersistence, [])
@@ -216,7 +221,7 @@ export const App = () => {
     let alive = true
     let unlisten: (() => void) | undefined
     const update = (mode: unknown) => {
-      if (mode === 'mini' || mode === 'max') {
+      if (mode === 'mini' || mode === 'max' || mode === 'full') {
         setPanelMode(mode)
       }
     }

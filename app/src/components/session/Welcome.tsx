@@ -13,7 +13,7 @@ export const Welcome = ({ panelMode }: { panelMode: PanelMode }) => {
   const t = useTranslate()
   const isMobile = useIsMobile()
   const toggleMode = () => {
-    void invoke(panelMode === 'max' ? 'restore_panel' : 'maximize_panel')
+    void invoke(panelMode === 'mini' ? 'maximize_panel' : 'restore_panel')
   }
   const drag = useWindowDrag(toggleMode)
   return (

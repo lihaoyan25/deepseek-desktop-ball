@@ -26,7 +26,7 @@ export const SessionView = ({
   const isMobile = useIsMobile()
   const title = session.title || t('untitledChat')
   const toggleMode = () => {
-    void invoke(panelMode === 'max' ? 'restore_panel' : 'maximize_panel')
+    void invoke(panelMode === 'mini' ? 'maximize_panel' : 'restore_panel')
   }
   const drag = useWindowDrag(toggleMode)
   return (

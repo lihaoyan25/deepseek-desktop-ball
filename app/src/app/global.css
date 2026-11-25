@@ -113,6 +113,10 @@ body.light .window-border {
   box-shadow: inset 0 0 0 1px #e0e0e2;
 }
 
+body.window-full .window-border {
+  display: none;
+}
+
 html,
 body,
 #root {

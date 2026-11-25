@@ -80,6 +80,42 @@ export const IconRestoreOutline16 = () => (
   </svg>
 )
 
+/** Windows/DSH 标准最大化的单方框。 */
+export const IconWindowMaximizeOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect
+      x="3.4"
+      y="3.4"
+      width="9.2"
+      height="9.2"
+      rx="0.7"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    />
+  </svg>
+)
+
+/** Windows/DSH 标准还原的双方框。 */
+export const IconWindowRestoreOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M5.6 3.5H11.8C12.19 3.5 12.5 3.81 12.5 4.2V10.4"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    />
+    <rect
+      x="3.5"
+      y="5.6"
+      width="6.9"
+      height="6.9"
+      rx="0.7"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    />
+  </svg>
+)
+
 /** DSH 右侧栏全屏后的“退出全屏”图标（ExitFullscreenGlyph）。 */
 export const IconExitFullscreenOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -74,6 +74,24 @@ fn make_noactivate(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(target_os = "windows")]
+fn set_window_rounded(window: &tauri::WebviewWindow, rounded: bool) {
+  use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE};
+
+  if let Ok(hwnd) = window.hwnd() {
+    // DWMWCP_DONOTROUND = 1, DWMWCP_ROUND = 2
+    let preference: u32 = if rounded { 2 } else { 1 };
+    unsafe {
+      let _ = DwmSetWindowAttribute(
+        hwnd,
+        DWMWA_WINDOW_CORNER_PREFERENCE,
+        &preference as *const u32 as *const core::ffi::c_void,
+        4,
+      );
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
 fn remove_border(window: &tauri::WebviewWindow) {
   use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE,
@@ -141,6 +159,7 @@ struct BallRest(Mutex<Option<BallPoint>>);
 enum PanelMode {
   Mini,
   Max,
+  Full,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -163,6 +182,8 @@ const MIN_PANEL_WIDTH: f64 = 320.0;
 const MIN_PANEL_HEIGHT: f64 = 400.0;
 const DEFAULT_MINI_WIDTH: f64 = 400.0;
 const DEFAULT_MINI_HEIGHT: f64 = 640.0;
+const MAX_MINI_WIDTH: f64 = DEFAULT_MINI_WIDTH;
+const MAX_MINI_HEIGHT: f64 = DEFAULT_MINI_HEIGHT;
 
 struct PanelState {
   mode: Mutex<PanelMode>,
@@ -427,6 +448,20 @@ fn clamp_panel_size(size: PanelSize, monitor: &tauri::Monitor) -> PanelSize {
   }
 }
 
+/** Mini 模式不能超过“重置尺寸”的默认值 400×640。 */
+fn clamp_mini_size(size: PanelSize) -> PanelSize {
+  PanelSize {
+    width: size
+      .width
+      .clamp(MIN_PANEL_WIDTH, MAX_MINI_WIDTH.max(MIN_PANEL_WIDTH)),
+    height: size
+      .height
+      .clamp(MIN_PANEL_HEIGHT, MAX_MINI_HEIGHT.max(MIN_PANEL_HEIGHT)),
+    x: size.x,
+    y: size.y,
+  }
+}
+
 fn clamp_panel_point(monitor: &tauri::Monitor, point: BallPoint, pw: i32, ph: i32) -> BallPoint {
   let work = monitor.work_area();
   let min_x = work.position.x;
@@ -450,11 +485,53 @@ fn default_max_panel_size(monitor: &tauri::Monitor) -> PanelSize {
   }
 }
 
+fn full_panel_size(monitor: &tauri::Monitor) -> PanelSize {
+  let scale = monitor.scale_factor();
+  let work = monitor.work_area();
+  PanelSize {
+    width: (work.size.width as f64 / scale).round(),
+    height: (work.size.height as f64 / scale).round(),
+    x: None,
+    y: None,
+  }
+}
+
+fn apply_panel_constraints(
+  panel: &tauri::WebviewWindow,
+  mode: PanelMode,
+  monitor: &tauri::Monitor,
+) {
+  let scale = monitor.scale_factor();
+  let work = monitor.work_area();
+  match mode {
+    PanelMode::Mini => {
+      let _ = panel.set_max_size(Some(tauri::Size::Logical(tauri::LogicalSize::new(
+        MAX_MINI_WIDTH,
+        MAX_MINI_HEIGHT,
+      ))));
+      let _ = panel.set_resizable(true);
+    }
+    PanelMode::Max => {
+      let _ = panel.set_max_size(Some(tauri::Size::Logical(tauri::LogicalSize::new(
+        work.size.width as f64 / scale,
+        work.size.height as f64 / scale,
+      ))));
+      let _ = panel.set_resizable(true);
+    }
+    PanelMode::Full => {
+      let _ = panel.set_max_size::<tauri::Size>(None);
+      let _ = panel.set_resizable(false);
+    }
+  }
+  #[cfg(target_os = "windows")]
+  set_window_rounded(panel, mode != PanelMode::Full);
+}
+
 fn saved_panel_size(state: &PanelState, mode: PanelMode) -> Option<PanelSize> {
   let sizes = state.sizes.lock().ok()?;
   match mode {
     PanelMode::Mini => sizes.mini,
-    PanelMode::Max => sizes.max,
+    PanelMode::Max | PanelMode::Full => sizes.max,
   }
 }
 
@@ -462,6 +539,7 @@ fn emit_panel_mode(app: &AppHandle, mode: PanelMode) {
   let value = match mode {
     PanelMode::Mini => "mini",
     PanelMode::Max => "max",
+    PanelMode::Full => "full",
   };
   let _ = app.emit("panel-mode", value);
 }
@@ -481,9 +559,13 @@ fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
     Ok(sizes) => sizes,
     Err(_) => return,
   };
+  if mode == PanelMode::Full {
+    return;
+  }
   let current = match mode {
     PanelMode::Mini => sizes.mini,
     PanelMode::Max => sizes.max,
+    PanelMode::Full => unreachable!(),
   };
   let mut next = size;
   if next.x.is_none() || next.y.is_none() {
@@ -493,6 +575,7 @@ fn remember_panel_size(app: &AppHandle, size: PanelSize, force: bool) {
   match mode {
     PanelMode::Mini => sizes.mini = Some(next),
     PanelMode::Max => sizes.max = Some(next),
+    PanelMode::Full => return,
   }
   let should_write = force
     || state
@@ -516,6 +599,14 @@ fn remember_current_panel_size(app: &AppHandle, force: bool) {
   let state = app.state::<PanelState>();
   if state.temporary_compact.load(Ordering::Relaxed)
     || state.animating.load(Ordering::Relaxed)
+  {
+    return;
+  }
+  if state
+    .mode
+    .lock()
+    .map(|mode| *mode == PanelMode::Full)
+    .unwrap_or(true)
   {
     return;
   }
@@ -698,15 +789,13 @@ fn toggle(app: &AppHandle) {
   emit_panel_mode(app, PanelMode::Mini);
   let saved = saved_panel_size(&state, PanelMode::Mini);
   let saved_position = saved.and_then(|size| size.x.zip(size.y));
-  let size = clamp_panel_size(
-    saved.unwrap_or(PanelSize {
-      width: DEFAULT_MINI_WIDTH,
-      height: DEFAULT_MINI_HEIGHT,
-      x: None,
-      y: None,
-    }),
-    &monitor,
-  );
+  let size = clamp_mini_size(saved.unwrap_or(PanelSize {
+    width: DEFAULT_MINI_WIDTH,
+    height: DEFAULT_MINI_HEIGHT,
+    x: None,
+    y: None,
+  }));
+  apply_panel_constraints(&panel, PanelMode::Mini, &monitor);
 
   let scale = monitor.scale_factor();
   let size_px = monitor.size();
@@ -817,6 +906,7 @@ fn toggle_from_ball(app: AppHandle, state: State<'_, PanelState>) {
   };
   match mode {
     PanelMode::Max => maximize_panel(app, state),
+    PanelMode::Full => show_full_panel(&app),
     PanelMode::Mini => {
       if let Ok(mut mode) = state.mode.lock() {
         *mode = PanelMode::Mini;
@@ -840,6 +930,7 @@ fn maximize_panel(app: AppHandle, state: State<'_, PanelState>) {
   let Ok(Some(monitor)) = app.primary_monitor() else {
     return;
   };
+  apply_panel_constraints(&panel, PanelMode::Max, &monitor);
   let scale = monitor.scale_factor();
   let work = monitor.work_area();
   let saved = saved_panel_size(&state, PanelMode::Max);
@@ -896,6 +987,119 @@ fn maximize_panel(app: AppHandle, state: State<'_, PanelState>) {
   }
 }
 
+fn enter_full_panel(app: &AppHandle, state: &State<'_, PanelState>) {
+  remember_current_panel_size(app, true);
+  if let Ok(mut mode) = state.mode.lock() {
+    *mode = PanelMode::Full;
+  }
+  emit_panel_mode(app, PanelMode::Full);
+  let Some(panel) = app.get_webview_window("panel") else {
+    return;
+  };
+  let Ok(Some(monitor)) = app.primary_monitor() else {
+    return;
+  };
+  apply_panel_constraints(&panel, PanelMode::Full, &monitor);
+  let scale = monitor.scale_factor();
+  let full = full_panel_size(&monitor);
+  let work = monitor.work_area();
+  let target = WindowRect {
+    x: work.position.x,
+    y: work.position.y,
+    width: (full.width * scale).round() as u32,
+    height: (full.height * scale).round() as u32,
+  };
+  let generation = begin_panel_animation(app);
+  let start = if panel.is_visible().unwrap_or(false) {
+    panel_rect(&panel).unwrap_or(target)
+  } else {
+    let start = scaled_rect(target, PANEL_OPEN_SCALE);
+    set_panel_rect(&panel, start);
+    start
+  };
+  #[cfg(target_os = "windows")]
+  set_taskbar_visible(&panel, true);
+  let _ = panel.set_always_on_top(false);
+  let _ = panel.show();
+  let _ = panel.set_focus();
+  spawn_panel_animation(app.clone(), panel.clone(), start, target, generation);
+  if let Some(ball) = app.get_webview_window("ball") {
+    let _ = ball.hide();
+  }
+}
+
+fn leave_full_panel(app: &AppHandle, state: &State<'_, PanelState>) {
+  if *state.mode.lock().unwrap_or_else(|error| error.into_inner()) != PanelMode::Full {
+    return;
+  }
+  if let Ok(mut mode) = state.mode.lock() {
+    *mode = PanelMode::Max;
+  }
+  emit_panel_mode(app, PanelMode::Max);
+  let Some(panel) = app.get_webview_window("panel") else {
+    return;
+  };
+  let Ok(Some(monitor)) = app.primary_monitor() else {
+    return;
+  };
+  apply_panel_constraints(&panel, PanelMode::Max, &monitor);
+  let scale = monitor.scale_factor();
+  let saved = saved_panel_size(state, PanelMode::Max);
+  let saved_position = saved.and_then(|size| size.x.zip(size.y));
+  let size = clamp_panel_size(
+    saved.unwrap_or_else(|| default_max_panel_size(&monitor)),
+    &monitor,
+  );
+  let width = (size.width * scale).round() as u32;
+  let height = (size.height * scale).round() as u32;
+  let (x, y) = if let Some(point) = saved_position {
+    let point = clamp_panel_point(
+      &monitor,
+      BallPoint {
+        x: point.0,
+        y: point.1,
+      },
+      width as i32,
+      height as i32,
+    );
+    (point.x, point.y)
+  } else {
+    let work = monitor.work_area();
+    (
+      work.position.x + ((work.size.width - width) / 2) as i32,
+      work.position.y + ((work.size.height - height) / 2) as i32,
+    )
+  };
+  let target = WindowRect {
+    x,
+    y,
+    width,
+    height,
+  };
+  let generation = begin_panel_animation(app);
+  let start = panel_rect(&panel).unwrap_or(target);
+  #[cfg(target_os = "windows")]
+  set_taskbar_visible(&panel, true);
+  let _ = panel.set_always_on_top(false);
+  let _ = panel.show();
+  let _ = panel.set_focus();
+  spawn_panel_animation(app.clone(), panel.clone(), start, target, generation);
+}
+
+#[tauri::command]
+fn toggle_full_panel(app: AppHandle, state: State<'_, PanelState>) {
+  if *state.mode.lock().unwrap_or_else(|error| error.into_inner()) == PanelMode::Full {
+    leave_full_panel(&app, &state);
+  } else {
+    enter_full_panel(&app, &state);
+  }
+}
+
+fn show_full_panel(app: &AppHandle) {
+  let state = app.state::<PanelState>();
+  enter_full_panel(app, &state);
+}
+
 #[tauri::command]
 fn restore_panel(app: AppHandle, state: State<'_, PanelState>) {
   remember_current_panel_size(&app, true);
@@ -911,17 +1115,15 @@ fn restore_panel(app: AppHandle, state: State<'_, PanelState>) {
   };
   let scale = monitor.scale_factor();
   let work = monitor.work_area();
+  apply_panel_constraints(&panel, PanelMode::Mini, &monitor);
   let saved = saved_panel_size(&state, PanelMode::Mini);
   let saved_position = saved.and_then(|size| size.x.zip(size.y));
-  let size = clamp_panel_size(
-    saved.unwrap_or(PanelSize {
-      width: DEFAULT_MINI_WIDTH,
-      height: DEFAULT_MINI_HEIGHT,
-      x: None,
-      y: None,
-    }),
-    &monitor,
-  );
+  let size = clamp_mini_size(saved.unwrap_or(PanelSize {
+    width: DEFAULT_MINI_WIDTH,
+    height: DEFAULT_MINI_HEIGHT,
+    x: None,
+    y: None,
+  }));
   let width = (size.width * scale).round() as u32;
   let height = (size.height * scale).round() as u32;
   let (x, y) = if let Some(point) = saved_position {
@@ -991,6 +1193,7 @@ fn panel_mode(state: State<'_, PanelState>) -> String {
   match mode {
     PanelMode::Mini => "mini".to_string(),
     PanelMode::Max => "max".to_string(),
+    PanelMode::Full => "full".to_string(),
   }
 }
 
@@ -1023,9 +1226,13 @@ fn reset_panel_size(app: AppHandle, state: State<'_, PanelState>) {
     y: max_position.map(|point| point.1),
   });
   write_panel_sizes(&app, &sizes);
+  if mode == PanelMode::Full {
+    return;
+  }
   let size = match mode {
     PanelMode::Mini => sizes.mini,
     PanelMode::Max => sizes.max,
+    PanelMode::Full => return,
   };
   drop(sizes);
 
@@ -1035,6 +1242,7 @@ fn reset_panel_size(app: AppHandle, state: State<'_, PanelState>) {
   let Some(size) = size else {
     return;
   };
+  apply_panel_constraints(&panel, mode, &monitor);
   let scale = monitor.scale_factor();
   let _ = panel.set_size(tauri::LogicalSize::new(size.width, size.height));
   if let (Some(x), Some(y)) = (size.x, size.y) {
@@ -1177,6 +1385,7 @@ pub fn run() {
       save_ball_position,
       start_ball_drag,
       maximize_panel,
+      toggle_full_panel,
       restore_panel,
       panel_mode,
       reset_panel_size,
@@ -1255,18 +1464,23 @@ pub fn run() {
         if let Ok(mut sizes) = app.state::<PanelState>().sizes.lock() {
           *sizes = loaded_sizes;
         }
-        let initial = app
-          .state::<PanelState>()
-          .sizes
-          .lock()
-          .ok()
-          .and_then(|sizes| sizes.mini)
-          .unwrap_or(PanelSize {
-            width: DEFAULT_MINI_WIDTH,
-            height: DEFAULT_MINI_HEIGHT,
-            x: None,
-            y: None,
-          });
+        let initial = clamp_mini_size(
+          app
+            .state::<PanelState>()
+            .sizes
+            .lock()
+            .ok()
+            .and_then(|sizes| sizes.mini)
+            .unwrap_or(PanelSize {
+              width: DEFAULT_MINI_WIDTH,
+              height: DEFAULT_MINI_HEIGHT,
+              x: None,
+              y: None,
+            }),
+        );
+        if let Ok(Some(monitor)) = app.primary_monitor() {
+          apply_panel_constraints(&panel, PanelMode::Mini, &monitor);
+        }
         let _ = panel.set_size(tauri::LogicalSize::new(initial.width, initial.height));
         let _ = panel.set_always_on_top(true);
 
@@ -1288,6 +1502,14 @@ pub fn run() {
                 return;
               }
               if window.is_minimized().unwrap_or(false) {
+                return;
+              }
+              let mode = *app_handle
+                .state::<PanelState>()
+                .mode
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+              if mode == PanelMode::Full || window.is_maximized().unwrap_or(false) {
                 return;
               }
               let Ok(Some(monitor)) = app_handle.primary_monitor() else {
@@ -1325,6 +1547,14 @@ pub fn run() {
               if window.is_minimized().unwrap_or(false) {
                 return;
               }
+              let mode = *app_handle
+                .state::<PanelState>()
+                .mode
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+              if mode == PanelMode::Full {
+                return;
+              }
               let Ok(scale) = window.scale_factor() else {
                 return;
               };
@@ -1332,15 +1562,50 @@ pub fn run() {
                 return;
               };
               let logical = size.to_logical::<f64>(scale);
-              let clamped = clamp_panel_size(
-                PanelSize {
+              if window.is_maximized().unwrap_or(false) {
+                // mini 拖动到屏幕顶部时，Windows 可能绕过自定义模式直接 Snap。
+                // 这不是用户想要的“放大模式”，立即回到保存的 mini 几何。
+                if mode == PanelMode::Mini {
+                  let _ = window.unmaximize();
+                  let saved = saved_panel_size(&app_handle.state::<PanelState>(), PanelMode::Mini);
+                  if let Some(saved) = saved {
+                    let saved = clamp_mini_size(saved);
+                    apply_panel_constraints(&window, PanelMode::Mini, &monitor);
+                    let _ = window.set_size(tauri::LogicalSize::new(saved.width, saved.height));
+                    if let (Some(x), Some(y)) = (saved.x, saved.y) {
+                      let point = clamp_panel_point(
+                        &monitor,
+                        BallPoint { x, y },
+                        (saved.width * scale).round() as i32,
+                        (saved.height * scale).round() as i32,
+                      );
+                      let _ = window.set_position(PhysicalPosition::new(point.x, point.y));
+                    }
+                    remember_panel_size(&app_handle, saved, true);
+                  }
+                } else {
+                  let _ = window.unmaximize();
+                }
+                return;
+              }
+              let clamped = if mode == PanelMode::Mini {
+                clamp_mini_size(PanelSize {
                   width: logical.width,
                   height: logical.height,
                   x: None,
                   y: None,
-                },
-                &monitor,
-              );
+                })
+              } else {
+                clamp_panel_size(
+                  PanelSize {
+                    width: logical.width,
+                    height: logical.height,
+                    x: None,
+                    y: None,
+                  },
+                  &monitor,
+                )
+              };
               if (clamped.width - logical.width).abs() > 0.5
                 || (clamped.height - logical.height).abs() > 0.5
               {

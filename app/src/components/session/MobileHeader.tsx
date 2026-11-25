@@ -5,6 +5,8 @@ import {
   IconMenuOutline20,
   IconMinimizeOutline16,
   IconNewChatOutline20,
+  IconWindowMaximizeOutline16,
+  IconWindowRestoreOutline16,
 } from '../base/icons.js'
 import { useTranslate } from '../../i18n/index.js'
 import { newChat } from '../../services/chat/store.js'
@@ -17,9 +19,10 @@ import styles from './MobileHeader.module.css'
 /** 移动端顶栏：左侧菜单打开侧边栏；会话页再显示标题与开启新对话 */
 export const MobileHeader = ({ title, mode }: { title?: string; mode: PanelMode }) => {
   const t = useTranslate()
-  const isMax = mode === 'max'
+  const isMini = mode === 'mini'
+  const isFull = mode === 'full'
   const toggleMode = () => {
-    void invoke(isMax ? 'restore_panel' : 'maximize_panel')
+    void invoke(isMini ? 'maximize_panel' : 'restore_panel')
   }
   const drag = useWindowDrag(toggleMode)
   const closePanel = () => {
@@ -28,12 +31,25 @@ export const MobileHeader = ({ title, mode }: { title?: string; mode: PanelMode 
   const maximizePanel = () => {
     void invoke('maximize_panel')
   }
+  const toggleFullPanel = () => {
+    void invoke('toggle_full_panel')
+  }
   const restorePanel = () => {
     void invoke('restore_panel')
   }
-  const modeIcon = isMax ? <IconExitFullscreenOutline16 /> : <IconMaximizeOutline16 />
-  const modeLabel = isMax ? t('restorePanel') : t('maximizePanel')
-  const modeAction = isMax ? restorePanel : maximizePanel
+  const modeIcon = isFull ? (
+    <IconWindowRestoreOutline16 />
+  ) : isMini ? (
+    <IconMaximizeOutline16 />
+  ) : (
+    <IconWindowMaximizeOutline16 />
+  )
+  const modeLabel = isMini
+    ? t('maximizePanel')
+    : isFull
+      ? t('restoreWindow')
+      : t('maximizeWindow')
+  const modeAction = isMini ? maximizePanel : toggleFullPanel
   return (
     <div className={styles.header}>
       <IconButton
@@ -58,6 +74,17 @@ export const MobileHeader = ({ title, mode }: { title?: string; mode: PanelMode 
               aria-label={t('newChat')}
               onClick={newChat}
             />
+            {isMini ? null : (
+              <IconButton
+                size="m"
+                tone="primary"
+                icon={<IconExitFullscreenOutline16 />}
+                aria-label={t('restorePanel')}
+                tooltip={t('restorePanel')}
+                tooltipPlacement="bottom"
+                onClick={restorePanel}
+              />
+            )}
             <IconButton
               size="m"
               tone="primary"
@@ -81,6 +108,17 @@ export const MobileHeader = ({ title, mode }: { title?: string; mode: PanelMode 
       )}
       {title === undefined ? (
         <div className={styles.actions}>
+          {isMini ? null : (
+            <IconButton
+              size="m"
+              tone="primary"
+              icon={<IconExitFullscreenOutline16 />}
+              aria-label={t('restorePanel')}
+              tooltip={t('restorePanel')}
+              tooltipPlacement="bottom"
+              onClick={restorePanel}
+            />
+          )}
           <IconButton
             size="m"
             tone="primary"

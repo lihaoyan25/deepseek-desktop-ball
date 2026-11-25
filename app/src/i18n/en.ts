@@ -40,6 +40,8 @@ export const en = {
   close: 'Close',
   closePanel: 'Hide floating panel',
   maximizePanel: 'Maximize floating panel',
+  maximizeWindow: 'Maximize window',
+  restoreWindow: 'Restore window',
   restorePanel: 'Restore mini mode',
   windowSize: 'Window size',
   windowSizeDescription: 'Drag a window edge or corner to resize. Double-click the title bar to switch between mini and maximized.',

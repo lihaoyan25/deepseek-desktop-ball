@@ -7,6 +7,10 @@
   background-color: var(--dsw-alias-bg-base);
 }
 
+:global(body.window-full) .frame {
+  border-radius: 0;
+}
+
 :global(body.window-animating) .frame {
   contain: layout paint;
   pointer-events: none;

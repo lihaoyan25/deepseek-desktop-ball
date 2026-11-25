@@ -1,1 +1,1 @@
-export type PanelMode = 'mini' | 'max'
+export type PanelMode = 'mini' | 'max' | 'full'

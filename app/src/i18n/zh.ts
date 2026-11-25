@@ -36,6 +36,8 @@ export const zh = {
   close: '关闭',
   closePanel: '收起悬浮框',
   maximizePanel: '放大悬浮框',
+  maximizeWindow: '最大化窗口',
+  restoreWindow: '还原窗口',
   restorePanel: '恢复迷你模式',
   windowSize: '窗口尺寸',
   windowSizeDescription: '拖动窗口边缘或角调整大小，双击标题栏切换迷你/放大模式。',
