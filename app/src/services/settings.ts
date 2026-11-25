@@ -18,6 +18,7 @@ type Settings = {
   search: boolean
   siderCollapsed: boolean
   selectionAssistant: boolean
+  longMemory: boolean
 }
 
 const KEYS = {
@@ -30,6 +31,7 @@ const KEYS = {
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
   selectionAssistant: 'chat-demo:selection-assistant',
+  longMemory: 'chat-demo:long-memory',
 } as const
 
 const read = (key: string) => {
@@ -99,6 +101,7 @@ export const useSettings = create<Settings>(() => ({
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
   selectionAssistant: read(KEYS.selectionAssistant) === 'true',
+  longMemory: read(KEYS.longMemory) === 'true',
 }))
 
 export const setLocale = (locale: Locale) => {
@@ -145,4 +148,9 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
 export const setSelectionAssistant = (selectionAssistant: boolean) => {
   write(KEYS.selectionAssistant, String(selectionAssistant))
   useSettings.setState({ selectionAssistant })
+}
+
+export const setLongMemory = (longMemory: boolean) => {
+  write(KEYS.longMemory, String(longMemory))
+  useSettings.setState({ longMemory })
 }

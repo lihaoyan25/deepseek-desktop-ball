@@ -283,17 +283,131 @@ const toAssistantParam = (
   }
 }
 
+/** 单次请求最多携带的历史轮次。当前提问不计入这个数量。 */
+export const CONTEXT_WINDOW_ROUNDS = 50
+/** 历史消息的保守字符预算，防止 50 个长轮次直接撞上模型上下文。 */
+export const CONTEXT_WINDOW_CHARS = 60_000
+/** deepseek-flash 的 1M Token 上下文；长记忆只使用其中的 75%。 */
+export const MODEL_CONTEXT_TOKENS = 1_000_000
+export const LONG_MEMORY_CONTEXT_RATIO = 0.75
+export const LONG_MEMORY_CONTEXT_TOKENS = MODEL_CONTEXT_TOKENS * LONG_MEMORY_CONTEXT_RATIO
+
+type ContextRound = {
+  user: UserMessage
+  reply: AssistantMessage
+  userIndex: number
+}
+
+export type ContextWindow = {
+  rounds: [UserMessage, AssistantMessage][]
+  /** 第一条进入上下文的消息在 history 中的下标；没有可用轮次时为 null */
+  startIndex: number | null
+  includedRounds: number
+  excludedRounds: number
+  chars: number
+  tokens: number
+  longMemory: boolean
+  maxRounds: number
+  maxChars: number
+  maxTokens: number
+}
+
+/** CJK 按 1.5 token/字，其他字符按 3.5 字符/token 粗估；宁可高估，避免溢出。 */
+const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]/g
+const estimateTokens = (text: string) => {
+  const cjk = text.match(CJK_RE)?.length ?? 0
+  return Math.ceil(cjk * 1.5 + (text.length - cjk) / 3.5)
+}
+
 /** 历史中会进入请求上下文的轮次：提问后紧跟可用回答的才保留 */
-export const getContextRounds = (history: Message[]): [UserMessage, AssistantMessage][] => {
-  const rounds: [UserMessage, AssistantMessage][] = []
+const collectContextRounds = (history: Message[]): ContextRound[] => {
+  const rounds: ContextRound[] = []
   for (let i = 0; i + 1 < history.length; i++) {
     const [user, reply] = [history[i], history[i + 1]]
     if (user.role === 'user' && isUsableReply(reply)) {
-      rounds.push([user, reply])
+      rounds.push({ user, reply, userIndex: i })
       i++
     }
   }
   return rounds
+}
+
+export const getContextRounds = (history: Message[]): [UserMessage, AssistantMessage][] =>
+  collectContextRounds(history).map(({ user, reply }) => [user, reply])
+
+/**
+ * 从最新往前选完整轮次。
+ * 普通模式：最多 50 轮且不超过 6 万字符。
+ * 长记忆：不设轮次上限，使用模型 1M Token 的 75% 作为预算。
+ * 历史消息本身不删除，UI 仍展示完整分支；这里只决定发给模型的部分。
+ */
+export const getContextWindowRounds = (
+  history: Message[],
+  longMemory = false
+): ContextWindow => {
+  const all = collectContextRounds(history)
+  const maxRounds = longMemory ? Number.POSITIVE_INFINITY : CONTEXT_WINDOW_ROUNDS
+  const maxChars = longMemory ? Number.POSITIVE_INFINITY : CONTEXT_WINDOW_CHARS
+  const maxTokens = longMemory ? LONG_MEMORY_CONTEXT_TOKENS : Number.POSITIVE_INFINITY
+  let start = all.length
+  let chars = 0
+  let tokens = 0
+
+  const roundCost = ({ user, reply }: ContextRound) => {
+    let size = 64
+    let estimated = 16
+    size += user.content.length
+    estimated += estimateTokens(user.content)
+    for (const file of user.files) {
+      size += file.isImage ? 1200 : 400
+      estimated += file.isImage ? 1024 : 256
+    }
+    for (const block of reply.blocks) {
+      if (block.type === 'text') {
+        size += block.text.length
+        estimated += estimateTokens(block.text)
+      } else if (block.type !== 'thinking') {
+        // 工具块按实际回传内容粗估；思考块历史请求不回传，不计入。
+        const serialized = JSON.stringify(block)
+        size += serialized.length
+        estimated += estimateTokens(serialized)
+      }
+    }
+    return { size, estimated }
+  }
+
+  for (let i = all.length - 1; i >= 0; i--) {
+    if (all.length - i > maxRounds) {
+      break
+    }
+    const cost = roundCost(all[i])
+    // 至少保留最新一轮，即使这一轮本身就超过预算。
+    if (
+      i < all.length - 1 &&
+      (chars + cost.size > maxChars || tokens + cost.estimated > maxTokens)
+    ) {
+      break
+    }
+    chars += cost.size
+    tokens += cost.estimated
+    start = i
+  }
+
+  const rounds: [UserMessage, AssistantMessage][] = all
+    .slice(start)
+    .map(({ user, reply }) => [user, reply])
+  return {
+    rounds,
+    startIndex: all[start]?.userIndex ?? null,
+    includedRounds: rounds.length,
+    excludedRounds: start,
+    chars,
+    tokens,
+    longMemory,
+    maxRounds,
+    maxChars,
+    maxTokens,
+  }
 }
 
 /**
@@ -305,7 +419,8 @@ export const toRequestMessages = (
   question: UserMessage,
   prefix?: AssistantMessage,
   thinking = prefix?.thinking ?? false,
-  latestReminder?: string
+  latestReminder?: string,
+  longMemory = false
 ): MessageParam[] => {
   const messages: MessageParam[] = []
   let previousReminder: string | undefined
@@ -316,7 +431,7 @@ export const toRequestMessages = (
       previousReminder = reminder
     }
   }
-  for (const [user, reply] of getContextRounds(history)) {
+  for (const [user, reply] of getContextWindowRounds(history, longMemory).rounds) {
     // 历史提问没有文字、附件也都没有 serverId 时，提问为空，连同回答一起省略。
     if (!user.content && toFileBlocks(user.files).length === 0) {
       continue

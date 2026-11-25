@@ -24,7 +24,7 @@ import { createLatestReminder } from './latestReminder.js'
 import {
   applyEvent,
   canContinueReply,
-  getContextRounds,
+  getContextWindowRounds,
   settleReply,
   toRequestMessages,
 } from './reply.js'
@@ -865,6 +865,7 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
   // 否则快照里仍是旧 id，补传会直接复用它。
   request = refreshRequest(sessionId, request)
   const apiKey = useSettings.getState().apiKey ?? ''
+  const longMemory = useSettings.getState().longMemory
   const serverIds = new Map<string, string>()
   // 停止生成立即生效；上传本身不取消（输入框与其他消息可能共用同一任务），完成后照常写回 serverId
   const aborted = new Promise<never>((_, reject) => {
@@ -873,7 +874,7 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
   // 旧图片超限时先清除 ID，交给下方已有的附件补传流程。
   const files = [
     ...request.question.files,
-    ...getContextRounds(request.history).flatMap(([user]) => user.files),
+    ...getContextWindowRounds(request.history, longMemory).rounds.flatMap(([user]) => user.files),
   ]
   const checked = await Promise.race([checkImageFileIds(files, signal), aborted])
   if (checked.size > 0) {
@@ -900,7 +901,7 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
   }
 
   const pending = new Map<string, FileAttachment>()
-  for (const [user] of getContextRounds(request.history).toReversed()) {
+  for (const [user] of getContextWindowRounds(request.history, longMemory).rounds.toReversed()) {
     for (const file of user.files) {
       if (!file.serverId && !serverIds.has(file.id) && !pending.has(file.id)) {
         pending.set(file.id, file)
@@ -942,7 +943,7 @@ const collectServerFileIds = (request: Request): Set<string> => {
     }
   }
   add(request.question.files)
-  for (const [user] of getContextRounds(request.history)) {
+  for (const [user] of getContextWindowRounds(request.history, useSettings.getState().longMemory).rounds) {
     add(user.files)
   }
   return ids
@@ -1050,7 +1051,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           prepared.question,
           prepared.prefix,
           initial.thinking ?? false,
-          latestReminder
+          latestReminder,
+          useSettings.getState().longMemory
         )
         const events = streamMessage(
           useSettings.getState().apiKey ?? '',

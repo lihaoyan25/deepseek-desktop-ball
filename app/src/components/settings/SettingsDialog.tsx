@@ -23,6 +23,7 @@ import {
   isChineseBrowser,
   setLocale,
   setLocation,
+  setLongMemory,
   setSelectionAssistant,
   setThemePreference,
   setTtsVoice,
@@ -104,6 +105,7 @@ const SettingsContent = () => {
               <TtsVoiceSetting />
               <LocationSetting />
               <SelectionAssistantSetting />
+              <LongMemorySetting />
               <WindowSizeSetting />
             </>
           ) : (
@@ -224,6 +226,26 @@ const SelectionAssistantSetting = () => {
           checked={enabled}
           ariaLabel={t('selectionAssistant')}
           onChange={setSelectionAssistant}
+        />
+      }
+    />
+  )
+}
+
+/** 长记忆只扩大当前会话的上下文窗口，不是跨会话记忆。 */
+const LongMemorySetting = () => {
+  const t = useTranslate()
+  const enabled = useSettings((state) => state.longMemory)
+  return (
+    <SettingCell
+      label={t('longMemory')}
+      description={t('longMemoryDescription')}
+      status={null}
+      action={
+        <Switch
+          checked={enabled}
+          ariaLabel={t('longMemory')}
+          onChange={setLongMemory}
         />
       }
     />

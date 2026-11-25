@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
+import { useTranslate } from '../../i18n/index.js'
 import {
   buildMessageVersions,
   getVisibleMessages,
   type MessageVersions,
 } from '../../services/chat/branches.js'
+import {
+  CONTEXT_WINDOW_ROUNDS,
+  getContextWindowRounds,
+} from '../../services/chat/reply.js'
 import { selectMessageVersion } from '../../services/chat/store.js'
+import { useSettings } from '../../services/settings.js'
 import type { Session } from '../../services/chat/types.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
 import { AssistantMessage } from './AssistantMessage.js'
@@ -35,6 +41,28 @@ import styles from './MessageList.module.css'
 const STICKY_THRESHOLD = 40
 const EMPTY_VERSIONS: MessageVersions = { ids: [], index: -1 }
 
+const ContextBoundary = ({
+  excluded,
+  included,
+  longMemory,
+}: {
+  excluded: number
+  included: number
+  longMemory: boolean
+}) => {
+  const t = useTranslate()
+  return (
+    <div className={styles.contextBoundary} role="note">
+      <div>{t('contextWindowBoundary', { count: excluded })}</div>
+      <div className={styles.contextBoundaryStats}>
+        {longMemory
+          ? t('contextWindowLongStats', { included })
+          : t('contextWindowStats', { included, limit: CONTEXT_WINDOW_ROUNDS })}
+      </div>
+    </div>
+  )
+}
+
 export const MessageList = ({
   session,
   streaming,
@@ -50,7 +78,12 @@ export const MessageList = ({
   const stickyRef = useRef(true)
   const scrollTopRef = useRef(0)
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
+  const longMemory = useSettings((state) => state.longMemory)
   const messages = useMemo(() => getVisibleMessages(session), [session])
+  const contextWindow = useMemo(
+    () => getContextWindowRounds(messages, longMemory),
+    [messages, longMemory]
+  )
   const railItems = useMemo(() => buildTurnRailItems(messages), [messages])
   const [previousVersions, setPreviousVersions] = useState(() =>
     buildMessageVersions(session, new Map())
@@ -171,32 +204,39 @@ export const MessageList = ({
         <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
           <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
             <div ref={contentRef} className={styles.column}>
-              {messages.map((message, index) =>
-                message.role === 'user' ? (
-                  <UserMessage
-                    key={message.id}
-                    sessionId={session.id}
-                    message={message}
-                    retryUploadId={uploadRetryId}
-                    isFirst={index === 0}
-                    isLast={index === lastIndex || index === lastIndex - 1}
-                    busy={streaming}
-                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                    onSelectVersion={selectVersion}
-                  />
-                ) : (
-                  <AssistantMessage
-                    key={message.id}
-                    sessionId={session.id}
-                    message={message}
-                    isLast={index === lastIndex}
-                    streaming={streaming && index === lastIndex}
-                    busy={streaming}
-                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                    onSelectVersion={selectVersion}
-                  />
-                )
-              )}
+              {messages.map((message, index) => (
+                <Fragment key={message.id}>
+                  {index === contextWindow.startIndex && contextWindow.excludedRounds > 0 ? (
+                    <ContextBoundary
+                      excluded={contextWindow.excludedRounds}
+                      included={contextWindow.includedRounds}
+                      longMemory={longMemory}
+                    />
+                  ) : null}
+                  {message.role === 'user' ? (
+                    <UserMessage
+                      sessionId={session.id}
+                      message={message}
+                      retryUploadId={uploadRetryId}
+                      isFirst={index === 0}
+                      isLast={index === lastIndex || index === lastIndex - 1}
+                      busy={streaming}
+                      versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                      onSelectVersion={selectVersion}
+                    />
+                  ) : (
+                    <AssistantMessage
+                      sessionId={session.id}
+                      message={message}
+                      isLast={index === lastIndex}
+                      streaming={streaming && index === lastIndex}
+                      busy={streaming}
+                      versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                      onSelectVersion={selectVersion}
+                    />
+                  )}
+                </Fragment>
+              ))}
             </div>
           </div>
           {footer}
