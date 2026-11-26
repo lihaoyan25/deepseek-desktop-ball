@@ -354,24 +354,16 @@ export const getContextWindowRounds = (
   let tokens = 0
 
   const roundCost = ({ user, reply }: ContextRound) => {
-    let size = 64
-    let estimated = 16
-    size += user.content.length
-    estimated += estimateTokens(user.content)
+    // 按真正会发给模型的历史消息计算，避免把不回传的思考/搜索块算进预算。
+    const serialized = JSON.stringify([toUserParam(user), toAssistantParam(reply)])
+    let size = serialized.length
+    let estimated = estimateTokens(serialized)
     for (const file of user.files) {
+      if (!file.serverId) {
+        continue
+      }
       size += file.isImage ? 1200 : 400
       estimated += file.isImage ? 1024 : 256
-    }
-    for (const block of reply.blocks) {
-      if (block.type === 'text') {
-        size += block.text.length
-        estimated += estimateTokens(block.text)
-      } else if (block.type !== 'thinking') {
-        // 工具块按实际回传内容粗估；思考块历史请求不回传，不计入。
-        const serialized = JSON.stringify(block)
-        size += serialized.length
-        estimated += estimateTokens(serialized)
-      }
     }
     return { size, estimated }
   }
