@@ -12,7 +12,7 @@ An unofficial Windows desktop floating client for DeepSeek, built with Tauri. It
 Installer SHA256:
 
 ```text
-79A0672FBCD43FD99570614F7235167A13CBD0674928F55E5E7BCB838F6AD248
+1791A3ED992DE15D5A5BB341230E389B481E05DC315EF11795C7E084D4BA05D7
 ```
 
 No command line, Node.js, or Rust is required. Windows 10/11 x64 and the WebView2 Runtime are required.
@@ -42,7 +42,7 @@ This is an unofficial project. It is not affiliated with, endorsed by, or sponso
 安装包 SHA256：
 
 ```text
-79A0672FBCD43FD99570614F7235167A13CBD0674928F55E5E7BCB838F6AD248
+1791A3ED992DE15D5A5BB341230E389B481E05DC315EF11795C7E084D4BA05D7
 ```
 
 无需命令行、Node.js 或 Rust。系统要求为 Windows 10/11 x64，并需要 WebView2 Runtime。
