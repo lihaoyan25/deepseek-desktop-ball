@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
-use windows::Win32::Foundation::{HANDLE, HGLOBAL, HWND, POINT};
+use windows::Win32::Foundation::{HANDLE, HGLOBAL, HWND, POINT, RECT};
 use windows::Win32::System::Com::{
   CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
 };
@@ -26,8 +26,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
   keybd_event, GetAsyncKeyState, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_CONTROL, VK_LBUTTON,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-  GetAncestor, GetClassNameW, GetCursorPos, GetForegroundWindow, GetWindowThreadProcessId,
-  SetForegroundWindow, ShowWindow, WindowFromPoint, GA_ROOT, SW_SHOWNOACTIVATE,
+  GetAncestor, GetClassNameW, GetCursorPos, GetForegroundWindow, GetWindowRect,
+  GetWindowThreadProcessId, SetForegroundWindow, ShowWindow, WindowFromPoint, GA_ROOT,
+  SW_SHOWNOACTIVATE,
 };
 
 const TOOLBAR_WIDTH: f64 = 360.0;
@@ -310,6 +311,18 @@ fn selected_text_from_uia() -> Option<Option<String>> {
   receiver.recv_timeout(Duration::from_millis(320)).ok().flatten()
 }
 
+/** 拖动标题栏/边框时窗口位置或尺寸会变化；这不是划词动作。 */
+fn window_geometry_changed(target: HWND, start: RECT) -> bool {
+  let mut current = RECT::default();
+  if unsafe { GetWindowRect(target, &mut current) }.is_err() {
+    return false;
+  }
+  (current.left - start.left).abs() > 2
+    || (current.top - start.top).abs() > 2
+    || (current.right - current.left - (start.right - start.left)).abs() > 2
+    || (current.bottom - current.top - (start.bottom - start.top)).abs() > 2
+}
+
 fn send_copy() {
   unsafe {
     keybd_event(VK_CONTROL.0 as u8, 0, KEYBD_EVENT_FLAGS(0), 0);
@@ -417,6 +430,7 @@ pub fn start(app: AppHandle) {
     let mut down = false;
     let mut moved = false;
     let mut start = POINT::default();
+    let mut start_rect = None;
     let mut target = HWND::default();
 
     loop {
@@ -450,6 +464,10 @@ pub fn start(app: AppHandle) {
         moved = false;
         start = point;
         target = unsafe { GetForegroundWindow() };
+        start_rect = unsafe {
+          let mut rect = RECT::default();
+          GetWindowRect(target, &mut rect).ok().map(|_| rect)
+        };
         if state.visible() && !point_in_toolbar(&app, point) {
           hide_toolbar(&app);
         }
@@ -469,22 +487,31 @@ pub fn start(app: AppHandle) {
         down = false;
         let in_toolbar = state.visible() && point_in_toolbar(&app, point);
 
-        if !in_toolbar && !ignored_window(target) && moved {
+        if !in_toolbar
+          && !ignored_window(target)
+          && moved
+          && start_rect.is_some_and(|start_rect| !window_geometry_changed(target, start_rect))
+        {
           let uia = selected_text_from_uia();
-          let fallback = uia.is_none();
           let text = match uia {
             Some(Some(text)) if !text.trim().is_empty() => Some(text),
-            _ => None,
+            Some(Some(_)) => None,
+            // UIA 取不到选区时再用一次非破坏性的 Ctrl+C 探测；
+            // 只有真的复制到新文本才显示工具栏，避免拖窗/普通拖动误触发。
+            _ => resolve_selected_text(target)
+              .ok()
+              .filter(|text| !text.trim().is_empty()),
           };
-          if text.is_some() || fallback {
+          if let Some(text) = text {
             if let Ok(mut stored) = state.text.lock() {
-              *stored = text;
+              *stored = Some(text);
             }
             show_toolbar(&app, point, target);
           } else if let Ok(mut stored) = state.text.lock() {
             *stored = None;
           }
         }
+        start_rect = None;
       }
     }
   });
