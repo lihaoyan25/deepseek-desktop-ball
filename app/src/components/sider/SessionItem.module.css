@@ -73,7 +73,7 @@
   height: 20px;
   border: 1.5px solid var(--dsw-alias-label-tertiary);
   border-radius: 50%;
-  color: var(--dsw-alias-brand-primary-invert);
+  color: var(--dsw-alias-label-primary-foreground);
 
   svg {
     width: 14px;
